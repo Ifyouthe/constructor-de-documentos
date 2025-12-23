@@ -31,11 +31,7 @@ class ExcelService {
         return { success: false, error: 'No hay datos válidos para procesar' };
       }
 
-      // Validar formato - Adaptado para formatos de Sumate
-      const formatosValidos = ['general', 'con_HC', 'sin_HC', 'expediente_sumate', 'solicitud_credito'];
-      if (!formatosValidos.includes(formato)) {
-        return { success: false, error: `Formato no válido. Use: ${formatosValidos.join(', ')}` };
-      }
+      // No validar formato ya que ahora es dinámico basado en templates disponibles
 
       console.log(`[EXCEL-SERVICE] 🔄 Generando documento formato: ${formato}`);
 

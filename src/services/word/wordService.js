@@ -27,10 +27,13 @@ class WordService {
 
       console.log(`[WORD-SERVICE] 📝 Generando documento Word: ${template}`);
 
-      // Auto-detectar plantilla Word
+      // Auto-detectar plantilla Word - no agregar extensión si no la tiene
       let templateName = template;
-      if (!templateName.endsWith('.doc') && !templateName.endsWith('.docx')) {
-        templateName = `${template}.docx`;
+
+      // Solo agregar extensión si no tiene ninguna
+      if (!templateName.includes('.')) {
+        // Por defecto intentar con .doc primero
+        templateName = `${template}.doc`;
       }
 
       // Si no se especifica template, usar la primera plantilla Word disponible
