@@ -19,6 +19,9 @@ const wordService = require('./src/services/word/wordService');
 const app = express();
 const PORT = process.env.PORT || 3003;
 
+// Configurar trust proxy para Traefik
+app.set('trust proxy', true);
+
 console.log('========================================');
 console.log('🏗️  INICIANDO CONSTRUCTOR DE DOCUMENTOS SUMATE');
 console.log('📋 Microservicio de Generación de Documentos Excel');

@@ -145,11 +145,23 @@ const storageUtils = {
    */
   async listTemplates() {
     try {
+      const bucketName = process.env.SUPABASE_BUCKET_TEMPLATES || 'plantillas-documentos';
+      console.log(`[STORAGE] 📂 Listando plantillas del bucket: ${bucketName}`);
+      console.log(`[STORAGE] 🔑 Variables de entorno: TEMPLATES=${process.env.SUPABASE_BUCKET_TEMPLATES}, GENERATED=${process.env.SUPABASE_BUCKET_GENERATED}`);
+
       const { data, error } = await supabaseService.storage
-        .from(process.env.SUPABASE_BUCKET_TEMPLATES || 'plantillas-documentos')
+        .from(bucketName)
         .list();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[STORAGE] ❌ Error listando plantillas:', error);
+        throw error;
+      }
+
+      console.log(`[STORAGE] 📋 Encontrados ${data.length} archivos en bucket ${bucketName}`);
+      if (data.length > 0) {
+        console.log('[STORAGE] 📁 Archivos encontrados:', data.map(f => f.name));
+      }
 
       return { success: true, templates: data };
     } catch (error) {
