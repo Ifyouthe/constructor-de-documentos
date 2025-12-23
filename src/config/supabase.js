@@ -91,8 +91,8 @@ const storageUtils = {
 
       return { success: true, data };
     } catch (error) {
-      console.error('[STORAGE] Error descargando plantilla:', error.message);
-      return { success: false, error: error.message };
+      console.error('[STORAGE] Error descargando plantilla:', error.message || error);
+      return { success: false, error: error.message || error.toString() };
     }
   },
 

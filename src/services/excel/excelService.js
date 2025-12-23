@@ -210,44 +210,33 @@ class ExcelService {
       let templateName;
       let sheetName;
 
-      // 1. Si se especifica un template directamente
-      if (data.template) {
-        templateName = data.template.endsWith('.xlsx') ? data.template : `${data.template}.xlsx`;
-
-        // Mapear nombres de hojas según el template (como en Nexus)
-        if (templateName.includes('SCORING_CON_HC')) {
+      // Mapear formato/template a archivo real y hoja
+      switch (formato) {
+        case 'con_HC':
+        case 'SCORING_CON_HC':
+          templateName = 'SCORING_CON_HC.xlsx';
           sheetName = 'Scoring del Cliente';
-        } else if (templateName.includes('SCORING_SIN_HC')) {
+          break;
+        case 'sin_HC':
+        case 'SCORING_SIN_HC':
+          templateName = 'SCORING_SIN_HC.xlsx';
           sheetName = 'Scoring del Cliente';
-        } else if (templateName.includes('Formato_Editable_Listo')) {
+          break;
+        case 'seguimiento':
+          templateName = 'seguimiento del credito (1).xlsx';
+          sheetName = 'Hoja1';
+          break;
+        case 'Formato_Editable_Listo':
+          templateName = 'Formato_Editable_Listo.xlsx';
           sheetName = 'Ficha de identificación';
-        } else if (templateName.includes('seguimiento')) {
-          sheetName = 'Hoja1'; // Ajustar según el nombre real
-        } else {
-          sheetName = 'Hoja1'; // Default
-        }
-
-        console.log(`[EXCEL-SERVICE] 📋 Usando template: ${templateName}, hoja: ${sheetName}`);
+          break;
+        case 'general':
+        default:
+          templateName = 'Formato_Editable_Listo.xlsx';
+          sheetName = 'Ficha de identificación';
+          break;
       }
-      // 2. Si no hay template, mapear por formato
-      else {
-        switch (formato) {
-          case 'con_HC':
-            templateName = 'SCORING_CON_HC.xlsx';
-            sheetName = 'Scoring del Cliente';
-            break;
-          case 'sin_HC':
-            templateName = 'SCORING_SIN_HC.xlsx';
-            sheetName = 'Scoring del Cliente';
-            break;
-          case 'general':
-          default:
-            templateName = 'Formato_Editable_Listo.xlsx';
-            sheetName = 'Ficha de identificación';
-            break;
-        }
-        console.log(`[EXCEL-SERVICE] 📋 Usando formato ${formato}: template=${templateName}, hoja=${sheetName}`);
-      }
+      console.log(`[EXCEL-SERVICE] 📋 Usando formato ${formato}: template=${templateName}, hoja=${sheetName}`);
 
       console.log(`[EXCEL-SERVICE] 📥 Descargando plantilla: ${templateName}`);
 
