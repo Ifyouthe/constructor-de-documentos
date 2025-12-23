@@ -170,25 +170,37 @@ class WordService {
         return wordResult;
       }
 
-      // Subir a Supabase Storage
-      const uploadResult = await this.uploadToStorage(wordResult, dataSinTemplate);
-
-      if (!uploadResult.success) {
-        console.error('[WORD-SERVICE] ❌ Error subiendo a storage:', uploadResult.error);
+      // Solo subir a storage si se especifica
+      let storageUrl = null;
+      if (data.saveToStorage === true) {
+        const uploadResult = await this.uploadToStorage(wordResult, dataSinTemplate);
+        if (!uploadResult.success) {
+          console.error('[WORD-SERVICE] ❌ Error subiendo a storage:', uploadResult.error);
+        } else {
+          storageUrl = uploadResult.url;
+        }
       }
 
-      // Enviar a N8N
-      await this.sendToN8n(wordResult.fileData, wordResult.fileName, {
-        template: wordResult.template,
-        dataHash: wordResult.dataHash,
-        storageUrl: uploadResult.url || null
-      });
+      // Solo enviar a N8N si está configurado y se solicita
+      if (data.sendToN8n !== false && process.env.N8N_WEBHOOK_URL) {
+        try {
+          await this.sendToN8n(wordResult.fileData, wordResult.fileName, {
+            template: wordResult.template,
+            dataHash: wordResult.dataHash,
+            storageUrl: storageUrl
+          });
+        } catch (error) {
+          console.error('[WORD-SERVICE] ⚠️ Error enviando a N8N (continuando):', error.message);
+        }
+      }
 
       return {
         success: true,
         template: wordResult.template,
         fileName: wordResult.fileName,
-        storageUrl: uploadResult.url || null,
+        fileData: wordResult.fileData,
+        buffer: wordResult.buffer,
+        storageUrl: storageUrl,
         dataHash: wordResult.dataHash
       };
     } catch (error) {

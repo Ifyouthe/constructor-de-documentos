@@ -148,16 +148,29 @@ app.post('/webhook/generar-documento', async (req, res) => {
 
     console.log('[WEBHOOK] ✅ Documento generado exitosamente:', result.fileName);
 
-    res.status(200).json({
-      success: true,
-      data: {
-        fileName: result.fileName,
-        formato: result.formato || result.template,
-        storageUrl: result.storageUrl,
-        dataHash: result.dataHash
-      },
-      timestamp: new Date().toISOString()
-    });
+    // Si se solicita descarga directa, enviar el archivo
+    if (req.body.download === true && result.buffer) {
+      const mimeType = documentType === 'word'
+        ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+      res.send(result.buffer);
+    } else {
+      // Respuesta JSON con base64
+      res.status(200).json({
+        success: true,
+        data: {
+          fileName: result.fileName,
+          formato: result.formato || result.template,
+          fileData: result.fileData,
+          storageUrl: result.storageUrl,
+          dataHash: result.dataHash
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
 
   } catch (error) {
     console.error('[WEBHOOK] ❌ Error interno:', error.message);

@@ -81,25 +81,37 @@ class ExcelService {
         return excelResult;
       }
 
-      // Subir a Supabase Storage
-      const uploadResult = await this.uploadToStorage(excelResult, dataSinFormato);
-
-      if (!uploadResult.success) {
-        console.error('[EXCEL-SERVICE] ❌ Error subiendo a storage:', uploadResult.error);
+      // Solo subir a storage si se especifica
+      let storageUrl = null;
+      if (data.saveToStorage === true) {
+        const uploadResult = await this.uploadToStorage(excelResult, dataSinFormato);
+        if (!uploadResult.success) {
+          console.error('[EXCEL-SERVICE] ❌ Error subiendo a storage:', uploadResult.error);
+        } else {
+          storageUrl = uploadResult.url;
+        }
       }
 
-      // Enviar a N8N
-      await this.sendToN8n(excelResult.fileData, excelResult.fileName, {
-        formato: excelResult.formato,
-        dataHash: excelResult.dataHash,
-        storageUrl: uploadResult.url || null
-      });
+      // Solo enviar a N8N si está configurado y se solicita
+      if (data.sendToN8n !== false && process.env.N8N_WEBHOOK_URL) {
+        try {
+          await this.sendToN8n(excelResult.fileData, excelResult.fileName, {
+            formato: excelResult.formato,
+            dataHash: excelResult.dataHash,
+            storageUrl: storageUrl
+          });
+        } catch (error) {
+          console.error('[EXCEL-SERVICE] ⚠️ Error enviando a N8N (continuando):', error.message);
+        }
+      }
 
       return {
         success: true,
         formato: excelResult.formato,
         fileName: excelResult.fileName,
-        storageUrl: uploadResult.url || null,
+        fileData: excelResult.fileData,
+        buffer: excelResult.buffer,
+        storageUrl: storageUrl,
         dataHash: excelResult.dataHash
       };
     } catch (error) {
