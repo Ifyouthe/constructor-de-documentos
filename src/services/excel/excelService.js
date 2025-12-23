@@ -196,32 +196,45 @@ class ExcelService {
   async createWorkbookFromTemplate(data, formato = 'general') {
     try {
       let templateName;
-      let sheetName = 'Hoja1'; // Default sheet name
+      let sheetName;
 
-      // 1. Prioridad: template especificado directamente
+      // 1. Si se especifica un template directamente
       if (data.template) {
         templateName = data.template.endsWith('.xlsx') ? data.template : `${data.template}.xlsx`;
-        console.log(`[EXCEL-SERVICE] 📋 Usando template especificado: ${templateName}`);
-      }
-      // 2. Si no hay template pero hay formato específico
-      else if (formato !== 'general') {
-        templateName = `${formato}.xlsx`;
-        console.log(`[EXCEL-SERVICE] 📋 Usando template por formato: ${templateName}`);
-      }
-      // 3. Para 'general', usar la primera plantilla Excel disponible
-      else {
-        const templatesResult = await storageUtils.listTemplates();
-        if (templatesResult.success && templatesResult.templates.length > 0) {
-          const excelFiles = templatesResult.templates.filter(t => t.name.endsWith('.xlsx'));
-          if (excelFiles.length > 0) {
-            templateName = excelFiles[0].name;
-            console.log(`[EXCEL-SERVICE] 📋 Auto-detectando template: ${templateName}`);
-          } else {
-            throw new Error('No se encontraron plantillas Excel (.xlsx) en el bucket');
-          }
+
+        // Mapear nombres de hojas según el template (como en Nexus)
+        if (templateName.includes('SCORING_CON_HC')) {
+          sheetName = 'Scoring del Cliente';
+        } else if (templateName.includes('SCORING_SIN_HC')) {
+          sheetName = 'Scoring del Cliente';
+        } else if (templateName.includes('Formato_Editable_Listo')) {
+          sheetName = 'Ficha de identificación';
+        } else if (templateName.includes('seguimiento')) {
+          sheetName = 'Hoja1'; // Ajustar según el nombre real
         } else {
-          throw new Error('Error listando plantillas del bucket');
+          sheetName = 'Hoja1'; // Default
         }
+
+        console.log(`[EXCEL-SERVICE] 📋 Usando template: ${templateName}, hoja: ${sheetName}`);
+      }
+      // 2. Si no hay template, mapear por formato
+      else {
+        switch (formato) {
+          case 'con_HC':
+            templateName = 'SCORING_CON_HC.xlsx';
+            sheetName = 'Scoring del Cliente';
+            break;
+          case 'sin_HC':
+            templateName = 'SCORING_SIN_HC.xlsx';
+            sheetName = 'Scoring del Cliente';
+            break;
+          case 'general':
+          default:
+            templateName = 'Formato_Editable_Listo.xlsx';
+            sheetName = 'Ficha de identificación';
+            break;
+        }
+        console.log(`[EXCEL-SERVICE] 📋 Usando formato ${formato}: template=${templateName}, hoja=${sheetName}`);
       }
 
       console.log(`[EXCEL-SERVICE] 📥 Descargando plantilla: ${templateName}`);
