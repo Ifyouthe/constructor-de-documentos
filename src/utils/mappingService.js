@@ -22,19 +22,23 @@ class MappingService {
     if (this.loaded.has(formato)) return;
 
     try {
-      // Auto-detectar CSV basado en el formato (como en Nexus)
-      let csvFileName = `Mapfield_${formato}.csv`;
+      let csvFileName;
 
-      // Si es 'general', usar el primer CSV disponible como fallback
-      if (formato === 'general') {
-        // Intentar listar CSVs disponibles
-        const templatesResult = await storageUtils.listTemplates();
-        if (templatesResult.success && templatesResult.templates.length > 0) {
-          const csvFiles = templatesResult.templates.filter(t => t.name.endsWith('.csv'));
-          if (csvFiles.length > 0) {
-            csvFileName = csvFiles[0].name;
-          }
-        }
+      // Si el formato incluye extensión .xlsx, limpiarlo
+      const cleanFormato = formato.replace('.xlsx', '').replace('.xls', '');
+
+      // Mapeo basado en los archivos reales en el bucket
+      if (cleanFormato.includes('SCORING_CON_HC')) {
+        csvFileName = 'Mapfield_Con_HC.csv';
+      } else if (cleanFormato.includes('SCORING_SIN_HC')) {
+        csvFileName = 'Mapfield_Sin_HC.csv';
+      } else if (cleanFormato.includes('seguimiento')) {
+        csvFileName = 'mapfield_seguimiento - Mapfield.csv';
+      } else if (cleanFormato.includes('Formato_Editable_Listo')) {
+        csvFileName = 'Mapfield de Placeholders.csv';
+      } else {
+        // Default: usar Mapfield de Placeholders para general
+        csvFileName = 'Mapfield de Placeholders.csv';
       }
 
       console.log(`[MAPPING-SERVICE] 📥 Cargando mapping: ${csvFileName} para formato: ${formato}`);
