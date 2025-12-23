@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  constructor-de-documentos-sumate:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - SERVICE_NAME=constructor-de-documentos-sumate
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_BUCKET_TEMPLATES=${SUPABASE_BUCKET_TEMPLATES}
+      - SUPABASE_BUCKET_GENERATED=${SUPABASE_BUCKET_GENERATED}
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL}
+      - FRASE_SECRETA_EXCEL=${FRASE_SECRETA_EXCEL}
+      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-900000}
+      - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-50}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - sumate-network
+
+networks:
+  sumate-network:
+    external: true
