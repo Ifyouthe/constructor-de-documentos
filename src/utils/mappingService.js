@@ -27,18 +27,26 @@ class MappingService {
       // Si el formato incluye extensión .xlsx, limpiarlo
       const cleanFormato = formato.replace('.xlsx', '').replace('.xls', '');
 
-      // Mapeo basado en los archivos reales en el bucket
-      if (cleanFormato.includes('SCORING_CON_HC')) {
-        csvFileName = 'Mapfield_Con_HC.csv';
-      } else if (cleanFormato.includes('SCORING_SIN_HC')) {
-        csvFileName = 'Mapfield_Sin_HC.csv';
-      } else if (cleanFormato.includes('seguimiento')) {
-        csvFileName = 'mapfield_seguimiento - Mapfield.csv';
-      } else if (cleanFormato.includes('Formato_Editable_Listo')) {
-        csvFileName = 'Mapfield de Placeholders.csv';
-      } else {
-        // Default: usar Mapfield de Placeholders para general
-        csvFileName = 'Mapfield de Placeholders.csv';
+      // Mapeo basado en formato exacto (debe coincidir con excelService)
+      switch (cleanFormato) {
+        case 'con_HC':
+        case 'SCORING_CON_HC':
+          csvFileName = 'Mapfield_Con_HC.csv';
+          break;
+        case 'sin_HC':
+        case 'SCORING_SIN_HC':
+          csvFileName = 'Mapfield_Sin_HC.csv';
+          break;
+        case 'seguimiento':
+          csvFileName = 'mapfield_seguimiento - Mapfield.csv';
+          break;
+        case 'Formato_Editable_Listo':
+          csvFileName = 'Mapfield de Placeholders.csv';
+          break;
+        case 'general':
+        default:
+          csvFileName = 'Mapfield de Placeholders.csv';
+          break;
       }
 
       console.log(`[MAPPING-SERVICE] 📥 Cargando mapping: ${csvFileName} para formato: ${formato}`);
@@ -193,6 +201,87 @@ class MappingService {
       ['expediente', 'numero_de_expediente'],
       ['wa_id', 'wa_id'],
       ['fecha', 'fecha'],
+
+      // Alias específicos para buro (CRÍTICO para Scoring)
+      ['BC_score', 'buro.BC_score'],
+      ['bc_score', 'buro.BC_score'],
+      ['calc_bcscore', 'buro.BC_score'], // Para Con HC que usa buro.BC_score
+      ['ICC', 'buro.ICC'],
+      ['icc', 'buro.ICC'],
+      ['no_hit', 'buro.no_hit'],
+      ['buro_no_hit', 'buro.no_hit'],
+
+      // calc_bcscore directo (para Sin HC) - CRÍTICO
+      ['calc_bcscore', 'calc_bcscore'], // expose directo calc_bcscore
+
+      // Alias para elección final (CRÍTICO para Scoring)
+      ['ultima_oferta', 'eleccion_final.monto'],
+      ['monto_aceptado', 'eleccion_final.monto'],
+      ['monto_aceptado', 'monto_aceptado'], // directo también
+      ['calc_capacidad_semanal', 'eleccion_final.pago_semanal'],
+      ['pago_semanal', 'eleccion_final.pago_semanal'],
+
+      // Alias para evaluación económica
+      ['cuanto_ganas', 'evaluacion_economica.cuanto_ganas'],
+      ['cuanto_gastas', 'evaluacion_economica.cuanto_gastas'],
+      ['pagos_mensuales_creditos', 'evaluacion_economica.pagos_mensuales_creditos'],
+      ['egresos_mensuales', 'evaluacion_economica.egresos_mensuales'],
+
+      // Alias para actividad económica
+      ['anos_en_el_negocio', 'actividad_economica.anos_en_el_negocio'],
+
+      // Alias para datos del domicilio
+      ['la_casa_es', 'datos_del_domicilio.la_casa_es'],
+
+      // Alias para cliente
+      ['edad', 'cliente.edad'],
+      ['estado_civil', 'cliente.estado_civil'],
+      ['sexo', 'cliente.sexo'],
+
+      // Alias para seguimiento (doble llaves)
+      ['nombre_cliente', 'cliente.nombre'],
+      ['nombre_asesor', 'nombre_asesor'],
+      ['fecha_previo', 'fecha_previo'],
+      ['fecha_post', 'fecha_post'],
+      ['comentarios_previo', 'comentarios_previo'],
+      ['comentarios_post', 'comentarios_post'],
+
+      // Campos específicos de seguimiento (checkboxes sí/no)
+      ['monto_cliente_congruente_si', 'seguimiento.monto_cliente_congruente_si'],
+      ['monto_cliente_congruente_no', 'seguimiento.monto_cliente_congruente_no'],
+      ['riesgo_obligaciones_si', 'seguimiento.riesgo_obligaciones_si'],
+      ['riesgo_obligaciones_no', 'seguimiento.riesgo_obligaciones_no'],
+      ['riesgo_familiar_credito_si', 'seguimiento.riesgo_familiar_credito_si'],
+      ['riesgo_familiar_credito_no', 'seguimiento.riesgo_familiar_credito_no'],
+      ['enfermedad_riesgo_credito_si', 'seguimiento.enfermedad_riesgo_credito_si'],
+      ['enfermedad_riesgo_credito_no', 'seguimiento.enfermedad_riesgo_credito_no'],
+      ['autorizacion_gerente_si', 'seguimiento.autorizacion_gerente_si'],
+      ['autorizacion_gerente_no', 'seguimiento.autorizacion_gerente_no'],
+      ['problema_funcionamiento_si', 'seguimiento.problema_funcionamiento_si'],
+      ['problema_funcionamiento_no', 'seguimiento.problema_funcionamiento_no'],
+      ['mismo_aval_si', 'seguimiento.mismo_aval_si'],
+      ['mismo_aval_no', 'seguimiento.mismo_aval_no'],
+      ['credito_aplicado_si', 'seguimiento.credito_aplicado_si'],
+      ['credito_aplicado_no', 'seguimiento.credito_aplicado_no'],
+      ['negocio_cambios_si', 'seguimiento.negocio_cambios_si'],
+      ['presenta_atrasos_si', 'seguimiento.presenta_atrasos_si'],
+      ['presenta_atrasos_no', 'seguimiento.presenta_atrasos_no'],
+      ['riesgo_recuperacion_si', 'seguimiento.riesgo_recuperacion_si'],
+      ['riesgo_recuperacion_no', 'seguimiento.riesgo_recuperacion_no'],
+      ['problema_cliente_si', 'seguimiento.problema_cliente_si'],
+      ['problema_cliente_no', 'seguimiento.problema_cliente_no'],
+
+      // Campos de inversión
+      ['que_invertir_1', 'seguimiento.que_invertir_1'],
+      ['que_invertir_2', 'seguimiento.que_invertir_2'],
+      ['que_invertir_3', 'seguimiento.que_invertir_3'],
+      ['que_invertir_4', 'seguimiento.que_invertir_4'],
+      ['que_invertir_5', 'seguimiento.que_invertir_5'],
+      ['valor_estimado_1', 'seguimiento.valor_estimado_1'],
+      ['valor_estimado_2', 'seguimiento.valor_estimado_2'],
+      ['valor_estimado_3', 'seguimiento.valor_estimado_3'],
+      ['valor_estimado_4', 'seguimiento.valor_estimado_4'],
+      ['valor_estimado_5', 'seguimiento.valor_estimado_5'],
     ];
 
     // Aplicar alias
@@ -200,6 +289,50 @@ class MappingService {
       if (flatIndex[fromKey] !== undefined && flatIndex[toKey] === undefined) {
         flatIndex[toKey] = flatIndex[fromKey];
       }
+    }
+
+    // CÁLCULOS AUTOMÁTICOS (como en Nexus)
+
+    // Normalizar calc_bcscore removiendo ceros a la izquierda (CRÍTICO)
+    if (flatIndex['calc_bcscore'] !== undefined && flatIndex['calc_bcscore'] !== null) {
+      const raw = String(flatIndex['calc_bcscore']).trim();
+      const normalized = raw.replace(/^0+/, '');
+      flatIndex['calc_bcscore'] = normalized === '' ? '0' : normalized;
+    }
+    // Fallback: si no hay calc_bcscore, usar bc_score normalizado sin ceros a la izquierda
+    if ((flatIndex['calc_bcscore'] === undefined || flatIndex['calc_bcscore'] === '')
+        && flatIndex['bc_score'] !== undefined && flatIndex['bc_score'] !== null) {
+      const raw = String(flatIndex['bc_score']).trim();
+      const normalized = raw.replace(/^0+/, '');
+      flatIndex['calc_bcscore'] = normalized === '' ? '0' : normalized;
+    }
+
+    // Derivar porcentaje de pago sobre ingreso para sin HC (B6)
+    // pct = pagos_mensuales_creditos / cuanto_ganas * 100, formateado con 2 dec y "%"
+    const rawIngresos = flatIndex['evaluacion_economica.cuanto_ganas'] ?? flatIndex['cuanto_ganas'];
+    const rawPagos = flatIndex['evaluacion_economica.pagos_mensuales_creditos'] ?? flatIndex['pagos_mensuales_creditos'];
+
+    const ingresos = this.parseSmartNumber(rawIngresos);
+    const pagos = this.parseSmartNumber(rawPagos);
+    if (ingresos > 0 && pagos >= 0) {
+      let pct = Math.round(((pagos / ingresos) * 100) * 100) / 100;
+      // Si es >0% y <1%, forzar a 1%
+      if (pct > 0 && pct < 1) pct = 1;
+      flatIndex['evaluacion_economica.pct_pago_sobre_ingreso'] = `${pct}%`;
+    }
+
+    // Calcular edad si se proporciona fecha de nacimiento
+    try {
+      const fecha = flatIndex['cliente.fecha_de_nacimiento'] || flatIndex['cliente_fecha_de_nacimiento'];
+      if (fecha && (transformed.cliente?.edad === undefined)) {
+        const age = this.calculateAgeFromDateString(String(fecha));
+        if (!isNaN(age)) {
+          transformed.cliente = { ...(transformed.cliente || {}), edad: age };
+          flatIndex['cliente.edad'] = age;
+        }
+      }
+    } catch (_) {
+      // ignorar errores de parsing de edad
     }
 
     // Adjuntar índice plano
@@ -300,6 +433,22 @@ class MappingService {
 
     // Para cualquier otro caso, mantener como string
     return value.toString();
+  }
+
+  /**
+   * Función para parsear números inteligentemente (como en Nexus)
+   */
+  parseSmartNumber(v) {
+    if (v === null || v === undefined) return NaN;
+    const s = String(v).toLowerCase().trim();
+    if (!s) return NaN;
+    // "35 mil" o "10k"
+    if (/\bmil\b/.test(s) || /\bk\b/.test(s)) {
+      const n = parseFloat(s.replace(/[^\d.,-]/g, '').replace(',', '.'));
+      return isNaN(n) ? NaN : n * 1000;
+    }
+    const n = parseFloat(s.replace(/[^0-9.-]/g, ''));
+    return isNaN(n) ? NaN : n;
   }
 
   /**
