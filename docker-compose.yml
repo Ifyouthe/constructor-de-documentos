@@ -26,8 +26,8 @@ services:
       retries: 3
       start_period: 40s
     networks:
-      - sumate-network
+      - backend_global
 
 networks:
-  sumate-network:
+  backend_global:
     external: true
