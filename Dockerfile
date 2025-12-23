@@ -34,11 +34,11 @@ RUN chown -R nextjs:nodejs /app
 USER nextjs
 
 # Exponer puerto
-EXPOSE 3001
+EXPOSE 3003
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })\" || exit 1
+  CMD node -e "require('http').get('http://localhost:3003/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })\" || exit 1
 
 # Usar tini como PID 1 para manejo correcto de señales
 ENTRYPOINT ["/sbin/tini", "--"]

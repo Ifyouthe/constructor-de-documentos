@@ -16,7 +16,7 @@ const { checkSupabaseConnection, storageUtils, documentUtils } = require('./src/
 const excelService = require('./src/services/excel/excelService');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3003;
 
 console.log('========================================');
 console.log('🏗️  INICIANDO CONSTRUCTOR DE DOCUMENTOS SUMATE');
