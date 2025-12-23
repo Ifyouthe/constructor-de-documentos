@@ -28,7 +28,10 @@
     "csv-parser": "^3.0.0",
     "crypto": "^1.0.1",
     "@supabase/supabase-js": "^2.39.0",
-    "express-rate-limit": "^7.1.5"
+    "express-rate-limit": "^7.1.5",
+    "docxtemplater": "^3.67.3",
+    "pizzip": "^3.2.0",
+    "mammoth": "^1.11.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

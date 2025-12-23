@@ -14,6 +14,7 @@ const { checkSupabaseConnection, storageUtils, documentUtils } = require('./src/
 
 // Importar servicios
 const excelService = require('./src/services/excel/excelService');
+const wordService = require('./src/services/word/wordService');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -123,7 +124,15 @@ app.post('/webhook/generar-documento', async (req, res) => {
     console.log('[WEBHOOK] 📨 Solicitud de generación de documento recibida');
     console.log('[WEBHOOK] 📊 Datos:', JSON.stringify(req.body, null, 2));
 
-    const result = await excelService.processWebhookData(req.body);
+    // Detectar tipo de documento basado en extensión o tipo especificado
+    const documentType = req.body.type || 'excel'; // 'excel' o 'word'
+    let result;
+
+    if (documentType === 'word') {
+      result = await wordService.processWebhookData(req.body);
+    } else {
+      result = await excelService.processWebhookData(req.body);
+    }
 
     if (!result.success) {
       console.error('[WEBHOOK] ❌ Error procesando:', result.error);
@@ -140,7 +149,7 @@ app.post('/webhook/generar-documento', async (req, res) => {
       success: true,
       data: {
         fileName: result.fileName,
-        formato: result.formato,
+        formato: result.formato || result.template,
         storageUrl: result.storageUrl,
         dataHash: result.dataHash
       },

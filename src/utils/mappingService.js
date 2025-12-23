@@ -22,26 +22,19 @@ class MappingService {
     if (this.loaded.has(formato)) return;
 
     try {
-      let csvFileName;
+      // Auto-detectar CSV basado en el formato (como en Nexus)
+      let csvFileName = `Mapfield_${formato}.csv`;
 
-      // Mapear formato a archivo CSV
-      switch (formato) {
-        case 'con_HC':
-          csvFileName = 'Mapfield_Con_HC.csv';
-          break;
-        case 'sin_HC':
-          csvFileName = 'Mapfield_Sin_HC.csv';
-          break;
-        case 'expediente_sumate':
-          csvFileName = 'Mapfield_Sumate_Expediente.csv';
-          break;
-        case 'solicitud_credito':
-          csvFileName = 'Mapfield_Solicitud_Credito.csv';
-          break;
-        case 'general':
-        default:
-          csvFileName = 'Mapfield_General_Sumate.csv';
-          break;
+      // Si es 'general', usar el primer CSV disponible como fallback
+      if (formato === 'general') {
+        // Intentar listar CSVs disponibles
+        const templatesResult = await storageUtils.listTemplates();
+        if (templatesResult.success && templatesResult.templates.length > 0) {
+          const csvFiles = templatesResult.templates.filter(t => t.name.endsWith('.csv'));
+          if (csvFiles.length > 0) {
+            csvFileName = csvFiles[0].name;
+          }
+        }
       }
 
       console.log(`[MAPPING-SERVICE] 📥 Cargando mapping: ${csvFileName} para formato: ${formato}`);

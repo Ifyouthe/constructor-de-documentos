@@ -68,11 +68,16 @@ class ExcelService {
    */
   async processWebhookData(data) {
     try {
-      // Extraer formato del JSON (por defecto 'general')
-      const formato = data.formato || 'general';
-      const { formato: _, ...dataSinFormato } = data;
+      // Extraer formato y template del JSON
+      const formato = data.formato || data.template || 'general';
+      const { formato: _, template: __, ...dataSinFormato } = data;
 
-      console.log(`[EXCEL-SERVICE] 📨 Procesando webhook para formato: ${formato}`);
+      // Preservar template en los datos para que llegue a createWorkbookFromTemplate
+      if (data.template) {
+        dataSinFormato.template = data.template;
+      }
+
+      console.log(`[EXCEL-SERVICE] 📨 Procesando webhook para formato: ${formato}, template: ${data.template || 'auto'}`);
 
       const excelResult = await this.generateExcel(dataSinFormato, formato);
 
@@ -194,31 +199,33 @@ class ExcelService {
    */
   async createWorkbookFromTemplate(data, formato = 'general') {
     try {
-      // Mapear formato a nombre de plantilla
-      let templateName, sheetName;
+      let templateName;
+      let sheetName = 'Hoja1'; // Default sheet name
 
-      switch (formato) {
-        case 'con_HC':
-          templateName = 'SCORING_CON_HC.xlsx';
-          sheetName = 'Scoring del Cliente';
-          break;
-        case 'sin_HC':
-          templateName = 'SCORING_SIN_HC.xlsx';
-          sheetName = 'Scoring del Cliente';
-          break;
-        case 'expediente_sumate':
-          templateName = 'EXPEDIENTE_SUMATE_FORMATO.xlsx';
-          sheetName = 'Hoja1';
-          break;
-        case 'solicitud_credito':
-          templateName = 'SOLICITUD_CREDITO_SUMATE.xlsx';
-          sheetName = 'Solicitud';
-          break;
-        case 'general':
-        default:
-          templateName = 'FORMATO_GENERAL_SUMATE.xlsx';
-          sheetName = 'Documento';
-          break;
+      // 1. Prioridad: template especificado directamente
+      if (data.template) {
+        templateName = data.template.endsWith('.xlsx') ? data.template : `${data.template}.xlsx`;
+        console.log(`[EXCEL-SERVICE] 📋 Usando template especificado: ${templateName}`);
+      }
+      // 2. Si no hay template pero hay formato específico
+      else if (formato !== 'general') {
+        templateName = `${formato}.xlsx`;
+        console.log(`[EXCEL-SERVICE] 📋 Usando template por formato: ${templateName}`);
+      }
+      // 3. Para 'general', usar la primera plantilla Excel disponible
+      else {
+        const templatesResult = await storageUtils.listTemplates();
+        if (templatesResult.success && templatesResult.templates.length > 0) {
+          const excelFiles = templatesResult.templates.filter(t => t.name.endsWith('.xlsx'));
+          if (excelFiles.length > 0) {
+            templateName = excelFiles[0].name;
+            console.log(`[EXCEL-SERVICE] 📋 Auto-detectando template: ${templateName}`);
+          } else {
+            throw new Error('No se encontraron plantillas Excel (.xlsx) en el bucket');
+          }
+        } else {
+          throw new Error('Error listando plantillas del bucket');
+        }
       }
 
       console.log(`[EXCEL-SERVICE] 📥 Descargando plantilla: ${templateName}`);
