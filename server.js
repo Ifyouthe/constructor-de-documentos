@@ -13,8 +13,12 @@ require('dotenv').config();
 const { checkSupabaseConnection, storageUtils, documentUtils } = require('./src/config/supabase');
 
 // Importar servicios
-const excelService = require('./src/services/excel/excelService');
-const wordService = require('./src/services/word/wordService');
+const ExcelService = require('./src/services/excel/excelService');
+const WordService = require('./src/services/word/wordService');
+
+// Instanciar servicios
+const excelService = new ExcelService();
+const wordService = new WordService();
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -127,12 +131,26 @@ app.post('/webhook/generar-documento', async (req, res) => {
     console.log('[WEBHOOK] 📨 Solicitud de generación de documento recibida');
     console.log('[WEBHOOK] 📊 Datos:', JSON.stringify(req.body, null, 2));
 
-    // Detectar tipo de documento basado en extensión o tipo especificado
-    const documentType = req.body.type || 'excel'; // 'excel' o 'word'
+    // Detectar tipo de documento basado en formato o tipo especificado
+    const formato = req.body.formato || req.body.template || 'general';
+    const documentType = req.body.type ||
+      (formato === 'obligado_solidario' || formato === 'obligado' || formato === 'ficha_obligado' ||
+       formato === 'visita_domiciliaria' || formato === 'ficha_aval' ? 'word' : 'excel');
+
     let result;
 
     if (documentType === 'word') {
-      result = await wordService.processWebhookData(req.body);
+      // Configurar template correcto para Word
+      const dataConTemplate = { ...req.body };
+      if (formato === 'obligado_solidario' || formato === 'obligado' || formato === 'ficha_obligado') {
+        dataConTemplate.template = 'Fichadeidentificaciondelobligadosolidarioconetiquetas.doc';
+      } else if (formato === 'visita_domiciliaria') {
+        dataConTemplate.template = 'Visita domiciliaria con etiquetas.doc';
+      } else if (formato === 'ficha_aval') {
+        dataConTemplate.template = 'Ficha de identificación del aval con etiquetas.doc';
+      }
+
+      result = await wordService.processWebhookData(dataConTemplate);
     } else {
       result = await excelService.processWebhookData(req.body);
     }
@@ -183,7 +201,35 @@ app.post('/api/generar-documento', async (req, res) => {
 
     console.log(`[API] 📋 Generando documento formato: ${formato}`);
 
-    const result = await excelService.generateExcel(data, formato);
+    let result;
+
+    // Determinar si usar Word o Excel basado en el formato
+    if (formato === 'obligado_solidario' || formato === 'obligado' || formato === 'ficha_obligado' ||
+        formato === 'visita_domiciliaria' || formato === 'ficha_aval') {
+      // Usar servicio Word para estos formatos
+      let templateName;
+      switch(formato) {
+        case 'obligado_solidario':
+        case 'obligado':
+        case 'ficha_obligado':
+          templateName = 'Fichadeidentificaciondelobligadosolidarioconetiquetas.doc';
+          break;
+        case 'visita_domiciliaria':
+          templateName = 'Visita domiciliaria con etiquetas.doc';
+          break;
+        case 'ficha_aval':
+          templateName = 'Ficha de identificación del aval con etiquetas.doc';
+          break;
+        default:
+          templateName = formato;
+      }
+
+      result = await wordService.generateWord(data, templateName);
+      result.formato = formato; // Mantener el formato original para referencia
+    } else {
+      // Usar servicio Excel para los demás formatos
+      result = await excelService.generateExcel(data, formato);
+    }
 
     if (!result.success) {
       return res.status(400).json({

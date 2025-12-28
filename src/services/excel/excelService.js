@@ -183,6 +183,11 @@ class ExcelService {
       case 'sin_HC': {
         return `SUMATE_SCORING_SIN_HC_${nombreClienteUpper}_${codigoProspectoUpper}_${formattedDate}.xlsx`;
       }
+      case 'obligado_solidario':
+      case 'obligado':
+      case 'ficha_obligado': {
+        return `SUMATE_OBLIGADO_SOLIDARIO_${nombreClienteUpper}_${codigoProspectoUpper}_${formattedDate}.xlsx`;
+      }
       case 'expediente_sumate': {
         const numeroExpediente = data?.numero_de_expediente || data?.expediente || 'SIN_EXPEDIENTE';
         const nombreCompleto = `${data?.nombre || ''} ${data?.apellido_paterno || data?.apellido || ''}`.trim() || 'SIN_NOMBRE';
@@ -214,19 +219,30 @@ class ExcelService {
       switch (formato) {
         case 'con_HC':
         case 'SCORING_CON_HC':
+        case 'con_historial_crediticio':
           templateName = 'SCORING_CON_HC.xlsx';
           sheetName = 'Scoring del Cliente';
           break;
         case 'sin_HC':
         case 'SCORING_SIN_HC':
+        case 'sin_historial_crediticio':
           templateName = 'SCORING_SIN_HC.xlsx';
           sheetName = 'Scoring del Cliente';
+          break;
+        case 'obligado_solidario':
+        case 'obligado':
+        case 'ficha_obligado':
+          // Para obligado solidario, usar el Formato Editable que tiene sección de obligado
+          templateName = 'Formato_Editable_Listo.xlsx';
+          sheetName = 'Obligado Solidario';
+          // Si no existe esa hoja, intentar con la principal
           break;
         case 'seguimiento':
           templateName = 'seguimiento del credito (1).xlsx';
           sheetName = 'Hoja1';
           break;
         case 'Formato_Editable_Listo':
+        case 'formato_editable':
           templateName = 'Formato_Editable_Listo.xlsx';
           sheetName = 'Ficha de identificación';
           break;
@@ -254,7 +270,16 @@ class ExcelService {
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(arrayBuffer);
 
-      const worksheet = workbook.getWorksheet(sheetName);
+      let worksheet = workbook.getWorksheet(sheetName);
+
+      // Para obligado solidario, si no encuentra la hoja específica, usar la principal
+      if (!worksheet && formato.includes('obligado')) {
+        console.log(`[EXCEL-SERVICE] ⚠️ Hoja "${sheetName}" no encontrada, usando hoja principal`);
+        worksheet = workbook.getWorksheet('Ficha de identificación') ||
+                    workbook.getWorksheet('Hoja1') ||
+                    workbook.worksheets[0];
+      }
+
       if (!worksheet) {
         throw new Error(`Hoja "${sheetName}" no encontrada en la plantilla`);
       }
