@@ -139,11 +139,11 @@ app.post('/webhook/generar-documento', async (req, res) => {
       // Configurar template correcto para Word
       const dataConTemplate = { ...req.body };
       if (formato === 'obligado_solidario' || formato === 'obligado' || formato === 'ficha_obligado') {
-        dataConTemplate.template = 'Fichadeidentificaciondelobligadosolidarioconetiquetas.doc';
+        dataConTemplate.template = 'Fichadeidentificaciondelobligadosolidarioconetiquetas.docx';
       } else if (formato === 'visita_domiciliaria') {
-        dataConTemplate.template = 'Visita domiciliaria con etiquetas.doc';
+        dataConTemplate.template = 'Visita domiciliaria con etiquetas.docx';
       } else if (formato === 'ficha_aval') {
-        dataConTemplate.template = 'Ficha de identificación del aval con etiquetas.doc';
+        dataConTemplate.template = 'Ficha de identificación del aval con etiquetas.docx';
       }
 
       result = await wordService.processWebhookData(dataConTemplate);

@@ -33,8 +33,8 @@ class WordService {
 
       // Solo agregar extensión si no tiene ninguna
       if (!templateName.includes('.')) {
-        // Por defecto intentar con .doc primero
-        templateName = `${template}.doc`;
+        // Por defecto intentar con .docx primero
+        templateName = `${template}.docx`;
       }
 
       // Si no se especifica template, usar la primera plantilla Word disponible
