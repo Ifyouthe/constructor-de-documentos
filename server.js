@@ -12,13 +12,9 @@ require('dotenv').config();
 // Importar configuraciones
 const { checkSupabaseConnection, storageUtils, documentUtils } = require('./src/config/supabase');
 
-// Importar servicios
-const ExcelService = require('./src/services/excel/excelService');
-const WordService = require('./src/services/word/wordService');
-
-// Instanciar servicios
-const excelService = new ExcelService();
-const wordService = new WordService();
+// Importar servicios (ya vienen como instancias)
+const excelService = require('./src/services/excel/excelService');
+const wordService = require('./src/services/word/wordService');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
