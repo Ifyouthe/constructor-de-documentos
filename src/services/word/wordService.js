@@ -6,6 +6,7 @@
 const Docxtemplater = require('docxtemplater');
 const PizZip = require('pizzip');
 const crypto = require('crypto');
+const mammoth = require('mammoth');
 const { storageUtils, documentUtils } = require('../../config/supabase');
 
 class WordService {
@@ -92,6 +93,28 @@ class WordService {
 
       console.log(`[WORD-SERVICE] ✅ Plantilla cargada: ${templateName}`);
 
+      // Detectar si es archivo .doc (Word 97-2003) y manejarlo diferente
+      const isDocFormat = templateName.toLowerCase().endsWith('.doc') && !templateName.toLowerCase().endsWith('.docx');
+
+      if (isDocFormat) {
+        console.log(`[WORD-SERVICE] 🔄 Detectado formato .doc, usando fallback con mammoth`);
+        return await this.handleDocFormat(templateBuffer, data, templateName);
+      }
+
+      // Procesar normalmente para archivos .docx
+      return await this.processDocxTemplate(templateBuffer, data);
+
+    } catch (error) {
+      console.error('[WORD-SERVICE] ❌ Error creando documento Word:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Procesar plantilla .docx con docxtemplater
+   */
+  async processDocxTemplate(templateBuffer, data) {
+    try {
       // Cargar plantilla con PizZip
       const zip = new PizZip(templateBuffer);
 
@@ -109,14 +132,9 @@ class WordService {
       // Setear los datos en el template
       doc.setData(templateData);
 
-      try {
-        // Renderizar el documento
-        doc.render();
-        console.log(`[WORD-SERVICE] ✅ Documento renderizado exitosamente`);
-      } catch (error) {
-        console.error('[WORD-SERVICE] ❌ Error renderizando template:', error);
-        throw new Error(`Error renderizando template: ${error.message}`);
-      }
+      // Renderizar el documento
+      doc.render();
+      console.log(`[WORD-SERVICE] ✅ Documento renderizado exitosamente`);
 
       // Obtener el buffer del documento generado
       const docBuffer = doc.getZip().generate({
@@ -126,9 +144,115 @@ class WordService {
 
       return docBuffer;
     } catch (error) {
-      console.error('[WORD-SERVICE] ❌ Error creando documento Word:', error);
+      console.error('[WORD-SERVICE] ❌ Error procesando plantilla .docx:', error);
       throw error;
     }
+  }
+
+  /**
+   * Manejar archivos .doc usando mammoth para extraer texto y crear documento simple
+   */
+  async handleDocFormat(templateBuffer, data, templateName) {
+    try {
+      console.log(`[WORD-SERVICE] 🔄 Procesando archivo .doc con mammoth`);
+
+      // Extraer texto del archivo .doc
+      const result = await mammoth.extractRawText({ buffer: templateBuffer });
+      let templateText = result.value;
+
+      console.log(`[WORD-SERVICE] 📄 Texto extraído del .doc, longitud: ${templateText.length}`);
+
+      // Preparar datos para reemplazo
+      const templateData = this.prepareTemplateData(data);
+
+      // Reemplazar placeholders en el texto
+      Object.keys(templateData).forEach(key => {
+        const value = templateData[key] || '';
+        // Buscar diferentes formatos de placeholder
+        const patterns = [
+          new RegExp(`\\{\\{${key}\\}\\}`, 'g'),  // {{key}}
+          new RegExp(`\\{${key}\\}`, 'g'),       // {key}
+          new RegExp(`\\$\\{${key}\\}`, 'g')     // ${key}
+        ];
+
+        patterns.forEach(pattern => {
+          templateText = templateText.replace(pattern, value);
+        });
+      });
+
+      // Crear documento Word simple con el texto procesado
+      const docContent = this.createSimpleDocx(templateText);
+
+      console.log(`[WORD-SERVICE] ✅ Documento .doc procesado exitosamente`);
+      return docContent;
+
+    } catch (error) {
+      console.error('[WORD-SERVICE] ❌ Error procesando archivo .doc:', error);
+      throw new Error(`Error procesando archivo .doc: ${error.message}`);
+    }
+  }
+
+  /**
+   * Crear documento Word simple con texto
+   */
+  createSimpleDocx(text) {
+    try {
+      // Crear estructura básica de un documento .docx
+      const zip = new PizZip();
+
+      // Contenido mínimo para un documento Word válido
+      const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p>
+      <w:r>
+        <w:t>${this.escapeXml(text)}</w:t>
+      </w:r>
+    </w:p>
+  </w:body>
+</w:document>`;
+
+      const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+      const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+      // Agregar archivos al zip
+      zip.file('[Content_Types].xml', contentTypesXml);
+      zip.file('_rels/.rels', relsXml);
+      zip.file('word/document.xml', documentXml);
+
+      // Generar buffer
+      const buffer = zip.generate({
+        type: 'nodebuffer',
+        compression: 'DEFLATE'
+      });
+
+      return buffer;
+
+    } catch (error) {
+      console.error('[WORD-SERVICE] ❌ Error creando documento simple:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Escapar caracteres especiales para XML
+   */
+  escapeXml(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
   }
 
   /**
