@@ -166,13 +166,27 @@ app.post('/webhook/generar-documento', async (req, res) => {
 
     console.log('[WEBHOOK] ✅ Documento generado exitosamente:', result.fileName);
 
+    // Verificar que el buffer existe
+    if (!result.buffer) {
+      console.error('[WEBHOOK] ❌ No se generó buffer del documento');
+      return res.status(500).json({
+        success: false,
+        error: 'No se pudo generar el archivo',
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Devolver siempre el archivo construido directamente
     const mimeType = documentType === 'word'
       ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
+    // Sanitizar nombre de archivo para evitar problemas con caracteres especiales
+    const safeFileName = result.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+
     res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"`);
+    res.setHeader('Content-Length', result.buffer.length);
     res.send(result.buffer);
 
   } catch (error) {
@@ -190,20 +204,38 @@ app.post('/webhook/generar-documento', async (req, res) => {
  */
 app.post('/api/generar-documento', async (req, res) => {
   try {
-    const { data, formato = 'general' } = req.body;
+    // Log completo del request (limitado para no saturar logs)
+    console.log(`[API] 📨 Request recibido con campos:`, Object.keys(req.body).slice(0, 10));
+    console.log(`[API] 📋 Type: ${req.body.type}, Template: ${req.body.template}`);
 
-    if (!data) {
+    // IMPORTANTE: Detectar formato desde 'template' (lo que envía N8N)
+    let formato = req.body.template || req.body.formato || 'general';
+    let tipoDocumento = req.body.type; // 'excel', 'word', etc
+
+    // Extraer data - quitar campos de control
+    let data;
+    if (req.body.data) {
+      // Si viene con wrapper 'data'
+      data = req.body.data;
+    } else {
+      // Si viene todo junto (como lo envía N8N), quitar campos de control
+      const { type, template, formato: f, saveToStorage, ...restData } = req.body;
+      data = restData;
+    }
+
+    if (!data || Object.keys(data).length === 0) {
       return res.status(400).json({
         success: false,
         error: 'Se requieren datos para generar el documento'
       });
     }
 
-    console.log(`[API] 📋 Generando documento formato: ${formato}`);
+    console.log(`[API] 📋 Generando documento - Template: ${formato}, Type: ${tipoDocumento}`);
+    console.log(`[API] 📊 Total campos de datos:`, Object.keys(data).length);
 
     let result;
 
-    // Determinar si usar Word o Excel basado en el formato
+    // Determinar si usar Word o Excel basado en el TEMPLATE (no en type)
     if (formato === 'obligado_solidario' || formato === 'obligado' || formato === 'ficha_obligado' ||
         formato === 'visita_domiciliaria' || formato === 'ficha_aval') {
       // Usar servicio Word para estos formatos
@@ -241,7 +273,12 @@ app.post('/api/generar-documento', async (req, res) => {
     // Opcionalmente subir a storage
     let storageUrl = null;
     if (req.body.saveToStorage) {
-      const uploadResult = await excelService.uploadToStorage(result, data);
+      // Usar el servicio correcto para upload
+      const uploadService = (formato === 'obligado_solidario' || formato === 'obligado' ||
+                            formato === 'ficha_obligado' || formato === 'visita_domiciliaria' ||
+                            formato === 'ficha_aval') ? wordService : excelService;
+
+      const uploadResult = await uploadService.uploadToStorage(result, data);
       if (uploadResult.success) {
         storageUrl = uploadResult.url;
       }
