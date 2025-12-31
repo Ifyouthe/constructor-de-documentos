@@ -31,9 +31,15 @@ class WordService {
       // Auto-detectar plantilla Word - no agregar extensión si no la tiene
       let templateName = template;
 
-      // Solo agregar extensión si no tiene ninguna
-      if (!templateName.includes('.')) {
-        // Por defecto intentar con .docx primero
+      // Manejar casos especiales de nombres de plantillas
+      if (template === 'obligado_solidario') {
+        templateName = 'Fichadeidentificaciondelobligadosolidarioconetiquetas.docx';
+      } else if (template === 'ficha_aval') {
+        templateName = 'ficha_de_identificacion_del_aval_con_etiquetas.docx';
+      } else if (template === 'visita_domiciliaria') {
+        templateName = 'Visita domiciliaria con etiquetas.docx';
+      } else if (!templateName.includes('.')) {
+        // Solo agregar extensión si no tiene ninguna
         templateName = `${template}.docx`;
       }
 
@@ -128,6 +134,8 @@ class WordService {
       const templateData = this.prepareTemplateData(data);
 
       console.log(`[WORD-SERVICE] 📊 Datos para template:`, Object.keys(templateData));
+      console.log(`[WORD-SERVICE] 🔍 Primeros 10 campos con valores:`,
+        Object.entries(templateData).slice(0, 10).map(([k,v]) => `${k}: "${v}"`));
 
       // Setear los datos en el template
       doc.setData(templateData);
@@ -259,20 +267,69 @@ class WordService {
    * Preparar datos para el template (como en Nexus)
    */
   prepareTemplateData(data) {
-    // Crear objeto plano con todos los campos
-    const flatData = this.flattenObject(data);
-    const templateData = {};
+    // Para obligado solidario, necesitamos estructura anidada
+    const templateData = {
+      // Campos de nivel superior
+      codigo: data.codigo || data.codigo_de_prospecto || '',
+      fecha: data.fecha || new Date().toLocaleDateString(),
 
-    // Copiar todos los campos
-    Object.keys(flatData).forEach(key => {
-      templateData[key] = flatData[key] || '';
-    });
+      // Estructura anidada para obligado
+      obligado: {
+        primer_nombre: data.primer_nombre || '',
+        segundo_nombre: data.segundo_nombre || '',
+        apellido_paterno: data.apellido_paterno || '',
+        apellido_materno: data.apellido_materno || '',
+        clave_de_elector: data.clave_de_elector || '',
+        CURP: data.curp || data.CURP || '',
+        RFC: data.rfc || data.RFC || '',
+        firma_electronica: data.firma_electronica || '',
+        nacionalidad: data.nacionalidad || '',
+        pais_de_nacimiento: data.pais_de_nacimiento || '',
+        estado_de_nacimiento: data.estado_de_nacimiento || '',
+        fecha_de_nacimiento: data.fecha_de_nacimiento || '',
+        estado_civil: data.estado_civil || '',
+        depentientes_economicos: data.depentientes_economicos || data.dependientes_economicos || '',
+        sexo: data.sexo || '',
+        escolaridad: data.escolaridad || '',
+        actividad: data.actividad || '',
+        profesion: data.profesion || data.lugar_de_trabajo || '',
+        ocupacion: data.ocupacion || data.actividad_u_ocupacion || ''
+      },
 
-    // Agregar campos adicionales comunes
-    templateData.fecha = templateData.fecha || new Date().toLocaleDateString();
-    templateData.nombre_completo = `${templateData.nombre || ''} ${templateData.apellido_paterno || templateData.apellido || ''}`.trim();
+      // Estructura anidada para domicilio
+      domicilio: {
+        direccion_calle: data.direccion_calle || '',
+        direccion_numero: data.direccion_numero || '',
+        direccion_colonia: data.direccion_colonia || '',
+        direccion_ciudad: data.direccion_ciudad || '',
+        codigo_postal: data.codigo_postal || '',
+        municipio: data.municipio || '',
+        estado: data.estado || '',
+        pais: data.pais || '',
+        referecia_localizacion: data.referecia_localizacion || data.referencia_localizacion || '',
+        la_casa_es: data.la_casa_es || '',
+        telefono: data.telefono || data.telefono_celular || ''
+      },
 
-    console.log(`[WORD-SERVICE] 🔄 Template data preparado con ${Object.keys(templateData).length} campos`);
+      // Estructura anidada para cargo público
+      cargo_publico: {
+        si: data.cargo_publico_si || '',
+        no: data.cargo_publico_no || '',
+        familiares: {
+          si: data.cargo_publico_familiares_si || '',
+          no: data.cargo_publico_familiares_no || ''
+        }
+      },
+
+      // Estructura para protesta
+      protesta: {
+        es_accionista: data.es_accionista || '',
+        tiene_relacion_con_accionista: data.tiene_relacion_con_accionista || ''
+      }
+    };
+
+    console.log(`[WORD-SERVICE] 🔄 Template data preparado con estructura anidada`);
+    console.log(`[WORD-SERVICE] 📊 Estructura de datos:`, JSON.stringify(templateData, null, 2));
 
     return templateData;
   }
