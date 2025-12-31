@@ -128,7 +128,17 @@ app.post('/webhook/generar-documento', async (req, res) => {
     console.log('[WEBHOOK] 📊 Datos:', JSON.stringify(req.body, null, 2));
 
     // Detectar tipo de documento basado en formato o tipo especificado
-    const formato = req.body.formato || req.body.template || 'general';
+    let formato = req.body.formato || req.body.template || 'general';
+
+    // Si el template viene con el nombre completo del archivo, extraer el formato
+    if (formato.includes('Fichadeidentificaciondelobligadosolidario')) {
+      formato = 'obligado_solidario';
+    } else if (formato.includes('Visita domiciliaria')) {
+      formato = 'visita_domiciliaria';
+    } else if (formato.includes('aval')) {
+      formato = 'ficha_aval';
+    }
+
     const documentType = req.body.type ||
       (formato === 'obligado_solidario' || formato === 'obligado' || formato === 'ficha_obligado' ||
        formato === 'visita_domiciliaria' || formato === 'ficha_aval' ? 'word' : 'excel');

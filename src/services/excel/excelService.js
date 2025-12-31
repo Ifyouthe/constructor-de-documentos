@@ -241,6 +241,12 @@ class ExcelService {
           templateName = 'seguimiento del credito (1).xlsx';
           sheetName = 'Hoja1';
           break;
+        case 'evaluacion_economica':
+        case 'evaluacion':
+        case 'ee':
+          templateName = 'Evaluacion_Economica_con_Etiquetas.xlsx';
+          sheetName = 'EE Simple 2025';
+          break;
         case 'Formato_Editable_Listo':
         case 'formato_editable':
           templateName = 'Formato_Editable_Listo.xlsx';
