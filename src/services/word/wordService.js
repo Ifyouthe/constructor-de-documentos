@@ -108,7 +108,7 @@ class WordService {
       }
 
       // Procesar normalmente para archivos .docx
-      return await this.processDocxTemplate(templateBuffer, data);
+      return await this.processDocxTemplate(templateBuffer, data, templateName);
 
     } catch (error) {
       console.error('[WORD-SERVICE] ❌ Error creando documento Word:', error);
@@ -119,7 +119,7 @@ class WordService {
   /**
    * Procesar plantilla .docx con docxtemplater
    */
-  async processDocxTemplate(templateBuffer, data) {
+  async processDocxTemplate(templateBuffer, data, templateName) {
     try {
       // Cargar plantilla con PizZip
       const zip = new PizZip(templateBuffer);
@@ -130,8 +130,8 @@ class WordService {
         linebreaks: true,
       });
 
-      // Preparar datos para el template (aplanado)
-      const templateData = this.prepareTemplateData(data);
+      // Preparar datos para el template (aplanado) - pasar templateName
+      const templateData = this.prepareTemplateData(data, templateName);
 
       console.log(`[WORD-SERVICE] 📊 Datos para template:`, Object.keys(templateData));
       console.log(`[WORD-SERVICE] 🔍 Primeros 10 campos con valores:`,
@@ -266,8 +266,50 @@ class WordService {
   /**
    * Preparar datos para el template (como en Nexus)
    */
-  prepareTemplateData(data) {
-    // Para obligado solidario, necesitamos estructura anidada
+  prepareTemplateData(data, templateName) {
+    // Detectar tipo de template basado en el nombre del template
+    const template = templateName || data.template || '';
+    const isObligadoSolidario = template.toLowerCase().includes('obligado') ||
+                                 template.toLowerCase().includes('fichadeidentificaciondelobligadosolidario');
+
+    console.log(`[WORD-SERVICE] 🔍 Template detectado: ${template}, isObligadoSolidario: ${isObligadoSolidario}`);
+
+    // Si es obligado solidario, usar estructura anidada
+    if (isObligadoSolidario) {
+      console.log(`[WORD-SERVICE] 📋 Usando estructura anidada para obligado solidario`);
+      return this.prepareObligadoSolidarioData(data);
+    }
+
+    // Para otros documentos, usar estructura plana
+    const flatData = this.flattenObject(data);
+    const templateData = {};
+
+    // Copiar todos los campos
+    Object.keys(flatData).forEach(key => {
+      templateData[key] = flatData[key] || '';
+    });
+
+    // Agregar campos adicionales comunes
+    templateData.fecha = templateData.fecha || new Date().toLocaleDateString();
+    templateData.nombre_completo = `${templateData.nombre || ''} ${templateData.apellido_paterno || templateData.apellido || ''}`.trim();
+
+    console.log(`[WORD-SERVICE] 🔄 Template data preparado con ${Object.keys(templateData).length} campos`);
+
+    return templateData;
+  }
+
+  /**
+   * Preparar datos específicos para Obligado Solidario
+   */
+  prepareObligadoSolidarioData(data) {
+    console.log(`[WORD-SERVICE] 📝 Preparando datos para obligado solidario`);
+    console.log(`[WORD-SERVICE] 🔍 Datos recibidos:`, {
+      primer_nombre: data.primer_nombre,
+      apellido_paterno: data.apellido_paterno,
+      codigo: data.codigo || data.codigo_de_prospecto,
+      direccion_calle: data.direccion_calle
+    });
+
     const templateData = {
       // Campos de nivel superior
       codigo: data.codigo || data.codigo_de_prospecto || '',
@@ -328,7 +370,7 @@ class WordService {
       }
     };
 
-    console.log(`[WORD-SERVICE] 🔄 Template data preparado con estructura anidada`);
+    console.log(`[WORD-SERVICE] 🔄 Template data preparado para Obligado Solidario`);
     console.log(`[WORD-SERVICE] 📊 Estructura de datos:`, JSON.stringify(templateData, null, 2));
 
     return templateData;
