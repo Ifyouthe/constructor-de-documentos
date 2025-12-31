@@ -303,72 +303,136 @@ class WordService {
    */
   prepareObligadoSolidarioData(data) {
     console.log(`[WORD-SERVICE] 📝 Preparando datos para obligado solidario`);
-    console.log(`[WORD-SERVICE] 🔍 Datos recibidos:`, {
-      primer_nombre: data.primer_nombre,
-      apellido_paterno: data.apellido_paterno,
-      codigo: data.codigo || data.codigo_de_prospecto,
-      direccion_calle: data.direccion_calle
+    console.log(`[WORD-SERVICE] 🔍 Datos recibidos (muestra):`, {
+      tieneNotacionPunto: !!data['obligado.primer_nombre'],
+      tieneEstructuraAnidada: !!data.obligado,
+      codigo: data.codigo || data.codigo_de_prospecto
     });
 
+    // Crear objeto con notación de punto que espera docxtemplater
     const templateData = {
       // Campos de nivel superior
-      codigo: data.codigo || data.codigo_de_prospecto || '',
-      fecha: data.fecha || new Date().toLocaleDateString(),
-
-      // Estructura anidada para obligado
-      obligado: {
-        primer_nombre: data.primer_nombre || '',
-        segundo_nombre: data.segundo_nombre || '',
-        apellido_paterno: data.apellido_paterno || '',
-        apellido_materno: data.apellido_materno || '',
-        clave_de_elector: data.clave_de_elector || '',
-        CURP: data.curp || data.CURP || '',
-        RFC: data.rfc || data.RFC || '',
-        firma_electronica: data.firma_electronica || '',
-        nacionalidad: data.nacionalidad || '',
-        pais_de_nacimiento: data.pais_de_nacimiento || '',
-        estado_de_nacimiento: data.estado_de_nacimiento || '',
-        fecha_de_nacimiento: data.fecha_de_nacimiento || '',
-        estado_civil: data.estado_civil || '',
-        depentientes_economicos: data.depentientes_economicos || data.dependientes_economicos || '',
-        sexo: data.sexo || '',
-        escolaridad: data.escolaridad || '',
-        actividad: data.actividad || '',
-        profesion: data.profesion || data.lugar_de_trabajo || '',
-        ocupacion: data.ocupacion || data.actividad_u_ocupacion || ''
-      },
-
-      // Estructura anidada para domicilio
-      domicilio: {
-        direccion_calle: data.direccion_calle || '',
-        direccion_numero: data.direccion_numero || '',
-        direccion_colonia: data.direccion_colonia || '',
-        direccion_ciudad: data.direccion_ciudad || '',
-        codigo_postal: data.codigo_postal || '',
-        municipio: data.municipio || '',
-        estado: data.estado || '',
-        pais: data.pais || '',
-        referecia_localizacion: data.referecia_localizacion || data.referencia_localizacion || '',
-        la_casa_es: data.la_casa_es || '',
-        telefono: data.telefono || data.telefono_celular || ''
-      },
-
-      // Estructura anidada para cargo público
-      cargo_publico: {
-        si: data.cargo_publico_si || '',
-        no: data.cargo_publico_no || '',
-        familiares: {
-          si: data.cargo_publico_familiares_si || '',
-          no: data.cargo_publico_familiares_no || ''
-        }
-      },
-
-      // Estructura para protesta
-      protesta: {
-        es_accionista: data.es_accionista || '',
-        tiene_relacion_con_accionista: data.tiene_relacion_con_accionista || ''
-      }
+      'codigo': data.codigo || data.codigo_de_prospecto || '',
+      'fecha': data.fecha || new Date().toLocaleDateString('es-MX')
     };
+
+    // Si los datos ya vienen con notación de punto, usarlos directamente
+    if (data['obligado.primer_nombre'] !== undefined) {
+      console.log(`[WORD-SERVICE] ✅ Datos ya vienen con notación de punto`);
+
+      // Copiar todos los campos con notación de punto
+      Object.keys(data).forEach(key => {
+        if (key.includes('.') || key === 'codigo' || key === 'fecha') {
+          templateData[key] = data[key] || '';
+        }
+      });
+
+      console.log(`[WORD-SERVICE] 📊 Campos con notación de punto:`, Object.keys(templateData));
+      return templateData;
+    }
+
+    // Si los datos vienen con estructura anidada, convertir a notación de punto
+    if (data.obligado && typeof data.obligado === 'object') {
+      console.log(`[WORD-SERVICE] 🔄 Convirtiendo estructura anidada a notación de punto`);
+
+      // Convertir obligado
+      const obligado = data.obligado;
+      templateData['obligado.primer_nombre'] = obligado.primer_nombre || '';
+      templateData['obligado.segundo_nombre'] = obligado.segundo_nombre || '';
+      templateData['obligado.apellido_paterno'] = obligado.apellido_paterno || '';
+      templateData['obligado.apellido_materno'] = obligado.apellido_materno || '';
+      templateData['obligado.clave_de_elector'] = obligado.clave_de_elector || '';
+      templateData['obligado.CURP'] = obligado.CURP || obligado.curp || '';
+      templateData['obligado.RFC'] = obligado.RFC || obligado.rfc || '';
+      templateData['obligado.firma_electronica'] = obligado.firma_electronica || '';
+      templateData['obligado.nacionalidad'] = obligado.nacionalidad || '';
+      templateData['obligado.pais_de_nacimiento'] = obligado.pais_de_nacimiento || '';
+      templateData['obligado.estado_de_nacimiento'] = obligado.estado_de_nacimiento || '';
+      templateData['obligado.fecha_de_nacimiento'] = obligado.fecha_de_nacimiento || '';
+      templateData['obligado.estado_civil'] = obligado.estado_civil || '';
+      templateData['obligado.depentientes_economicos'] = obligado.depentientes_economicos || obligado.dependientes_economicos || '';
+      templateData['obligado.sexo'] = obligado.sexo || '';
+      templateData['obligado.escolaridad'] = obligado.escolaridad || '';
+      templateData['obligado.actividad'] = obligado.actividad || '';
+      templateData['obligado.profesion'] = obligado.profesion || '';
+      templateData['obligado.ocupacion'] = obligado.ocupacion || '';
+
+      // Convertir domicilio
+      const domicilio = data.domicilio || {};
+      templateData['domicilio.direccion_calle'] = domicilio.direccion_calle || '';
+      templateData['domicilio.direccion_numero'] = domicilio.direccion_numero || '';
+      templateData['domicilio.direccion_colonia'] = domicilio.direccion_colonia || '';
+      templateData['domicilio.direccion_ciudad'] = domicilio.direccion_ciudad || '';
+      templateData['domicilio.codigo_postal'] = domicilio.codigo_postal || '';
+      templateData['domicilio.municipio'] = domicilio.municipio || '';
+      templateData['domicilio.estado'] = domicilio.estado || '';
+      templateData['domicilio.pais'] = domicilio.pais || '';
+      templateData['domicilio.referecia_localizacion'] = domicilio.referecia_localizacion || domicilio.referencia_localizacion || '';
+      templateData['domicilio.la_casa_es'] = domicilio.la_casa_es || '';
+      templateData['domicilio.telefono'] = domicilio.telefono || '';
+
+      // Convertir cargo_publico
+      const cargo_publico = data.cargo_publico || {};
+      templateData['cargo_publico.si'] = cargo_publico.si || '';
+      templateData['cargo_publico.no'] = cargo_publico.no || '';
+      templateData['cargo_publico.familiares.si'] = cargo_publico.familiares?.si || data.cargo_publico_familiares?.si || '';
+      templateData['cargo_publico.familiares.no'] = cargo_publico.familiares?.no || data.cargo_publico_familiares?.no || '';
+
+      // Convertir protesta
+      const protesta = data.protesta || {};
+      templateData['protesta.es_accionista'] = protesta.es_accionista || '';
+      templateData['protesta.tiene_relacion_con_accionista'] = protesta.tiene_relacion_con_accionista || '';
+
+      console.log(`[WORD-SERVICE] 📊 Campos convertidos a notación de punto:`, Object.keys(templateData));
+      return templateData;
+    }
+
+    // Si los datos vienen planos, crear notación de punto directamente
+    console.log(`[WORD-SERVICE] 🔄 Creando notación de punto desde datos planos`);
+
+    // Campos obligado con notación de punto
+    templateData['obligado.primer_nombre'] = data.primer_nombre || '';
+    templateData['obligado.segundo_nombre'] = data.segundo_nombre || '';
+    templateData['obligado.apellido_paterno'] = data.apellido_paterno || '';
+    templateData['obligado.apellido_materno'] = data.apellido_materno || '';
+    templateData['obligado.clave_de_elector'] = data.clave_de_elector || '';
+    templateData['obligado.CURP'] = data.CURP || data.curp || '';
+    templateData['obligado.RFC'] = data.RFC || data.rfc || '';
+    templateData['obligado.firma_electronica'] = data.firma_electronica || '';
+    templateData['obligado.nacionalidad'] = data.nacionalidad || '';
+    templateData['obligado.pais_de_nacimiento'] = data.pais_de_nacimiento || '';
+    templateData['obligado.estado_de_nacimiento'] = data.estado_de_nacimiento || '';
+    templateData['obligado.fecha_de_nacimiento'] = data.fecha_de_nacimiento || '';
+    templateData['obligado.estado_civil'] = data.estado_civil || '';
+    templateData['obligado.depentientes_economicos'] = data.depentientes_economicos || data.dependientes_economicos || '';
+    templateData['obligado.sexo'] = data.sexo || '';
+    templateData['obligado.escolaridad'] = data.escolaridad || '';
+    templateData['obligado.actividad'] = data.actividad || '';
+    templateData['obligado.profesion'] = data.profesion || '';
+    templateData['obligado.ocupacion'] = data.ocupacion || '';
+
+    // Campos domicilio con notación de punto
+    templateData['domicilio.direccion_calle'] = data.direccion_calle || '';
+    templateData['domicilio.direccion_numero'] = data.direccion_numero || '';
+    templateData['domicilio.direccion_colonia'] = data.direccion_colonia || '';
+    templateData['domicilio.direccion_ciudad'] = data.direccion_ciudad || '';
+    templateData['domicilio.codigo_postal'] = data.codigo_postal || '';
+    templateData['domicilio.municipio'] = data.municipio || '';
+    templateData['domicilio.estado'] = data.estado || '';
+    templateData['domicilio.pais'] = data.pais || '';
+    templateData['domicilio.referecia_localizacion'] = data.referecia_localizacion || data.referencia_localizacion || '';
+    templateData['domicilio.la_casa_es'] = data.la_casa_es || '';
+    templateData['domicilio.telefono'] = data.telefono || '';
+
+    // Campos cargo_publico con notación de punto
+    templateData['cargo_publico.si'] = data.cargo_publico_si || '';
+    templateData['cargo_publico.no'] = data.cargo_publico_no || '';
+    templateData['cargo_publico.familiares.si'] = data.cargo_publico_familiares_si || '';
+    templateData['cargo_publico.familiares.no'] = data.cargo_publico_familiares_no || '';
+
+    // Campos protesta con notación de punto
+    templateData['protesta.es_accionista'] = data.es_accionista || '';
+    templateData['protesta.tiene_relacion_con_accionista'] = data.tiene_relacion_con_accionista || '';
 
     console.log(`[WORD-SERVICE] 🔄 Template data preparado para Obligado Solidario`);
     console.log(`[WORD-SERVICE] 📊 Estructura de datos:`, JSON.stringify(templateData, null, 2));
