@@ -271,13 +271,22 @@ class WordService {
     const template = templateName || data.template || '';
     const isObligadoSolidario = template.toLowerCase().includes('obligado') ||
                                  template.toLowerCase().includes('fichadeidentificaciondelobligadosolidario');
+    const isAval = template.toLowerCase().includes('aval') ||
+                   template.toLowerCase().includes('ficha_de_identificacion_del_aval');
 
-    console.log(`[WORD-SERVICE] 🔍 Template detectado: ${template}, isObligadoSolidario: ${isObligadoSolidario}`);
+    console.log(`[WORD-SERVICE] 🔍 Template detectado: ${template}`);
+    console.log(`[WORD-SERVICE] 📋 isObligadoSolidario: ${isObligadoSolidario}, isAval: ${isAval}`);
 
-    // Si es obligado solidario, usar estructura anidada
+    // Si es obligado solidario, usar notación de punto
     if (isObligadoSolidario) {
-      console.log(`[WORD-SERVICE] 📋 Usando estructura anidada para obligado solidario`);
+      console.log(`[WORD-SERVICE] 📋 Usando notación de punto para obligado solidario`);
       return this.prepareObligadoSolidarioData(data);
+    }
+
+    // Si es aval, usar notación de punto
+    if (isAval) {
+      console.log(`[WORD-SERVICE] 📋 Usando notación de punto para aval`);
+      return this.prepareAvalData(data);
     }
 
     // Para otros documentos, usar estructura plana
@@ -435,6 +444,175 @@ class WordService {
     templateData['protesta.tiene_relacion_con_accionista'] = data.tiene_relacion_con_accionista || '';
 
     console.log(`[WORD-SERVICE] 🔄 Template data preparado para Obligado Solidario`);
+    console.log(`[WORD-SERVICE] 📊 Estructura de datos:`, JSON.stringify(templateData, null, 2));
+
+    return templateData;
+  }
+
+  /**
+   * Preparar datos específicos para Aval
+   */
+  prepareAvalData(data) {
+    console.log(`[WORD-SERVICE] 📝 Preparando datos para aval`);
+    console.log(`[WORD-SERVICE] 🔍 Datos recibidos (muestra):`, {
+      tieneNotacionPunto: !!data['aval.primer_nombre'],
+      tieneEstructuraAnidada: !!data.aval,
+      codigo: data.codigo || data.codigo_de_prospecto
+    });
+
+    // Crear objeto con notación de punto que espera docxtemplater
+    const templateData = {
+      // Campos de nivel superior
+      'codigo': data.codigo || data.codigo_de_prospecto || '',
+      'fecha': data.fecha || new Date().toLocaleDateString('es-MX')
+    };
+
+    // Si los datos ya vienen con notación de punto, usarlos directamente
+    if (data['aval.primer_nombre'] !== undefined) {
+      console.log(`[WORD-SERVICE] ✅ Datos ya vienen con notación de punto para aval`);
+
+      // Copiar todos los campos con notación de punto
+      Object.keys(data).forEach(key => {
+        if (key.includes('.') || key === 'codigo' || key === 'fecha') {
+          templateData[key] = data[key] || '';
+        }
+      });
+
+      console.log(`[WORD-SERVICE] 📊 Campos con notación de punto:`, Object.keys(templateData));
+      return templateData;
+    }
+
+    // Si los datos vienen con estructura anidada, convertir a notación de punto
+    if (data.aval && typeof data.aval === 'object') {
+      console.log(`[WORD-SERVICE] 🔄 Convirtiendo estructura anidada a notación de punto para aval`);
+
+      // Convertir aval
+      const aval = data.aval;
+      templateData['aval.primer_nombre'] = aval.primer_nombre || '';
+      templateData['aval.segundo_nombre'] = aval.segundo_nombre || '';
+      templateData['aval.apellido_paterno'] = aval.apellido_paterno || '';
+      templateData['aval.apellido_materno'] = aval.apellido_materno || '';
+      templateData['aval.clave_de_elector'] = aval.clave_de_elector || '';
+      templateData['aval.CURP'] = aval.CURP || aval.curp || '';
+      templateData['aval.RFC'] = aval.RFC || aval.rfc || '';
+      templateData['aval.firma_electronica'] = aval.firma_electronica || '';
+      templateData['aval.nacionalidad'] = aval.nacionalidad || '';
+      templateData['aval.pais_de_nacimiento'] = aval.pais_de_nacimiento || '';
+      templateData['aval.estado_de_nacimiento'] = aval.estado_de_nacimiento || '';
+      templateData['aval.fecha_de_nacimiento'] = aval.fecha_de_nacimiento || '';
+      templateData['aval.estado_civil'] = aval.estado_civil || '';
+      templateData['aval.depentientes_economicos'] = aval.depentientes_economicos || aval.dependientes_economicos || '';
+      templateData['aval.sexo'] = aval.sexo || '';
+      templateData['aval.escolaridad'] = aval.escolaridad || '';
+      templateData['aval.actividad'] = aval.actividad || '';
+      templateData['aval.profesion'] = aval.profesion || '';
+      templateData['aval.ocupacion'] = aval.ocupacion || '';
+
+      // Convertir domicilio
+      const domicilio = data.domicilio || {};
+      templateData['domicilio.direccion_calle'] = domicilio.direccion_calle || '';
+      templateData['domicilio.direccion_numero'] = domicilio.direccion_numero || '';
+      templateData['domicilio.direccion_colonia'] = domicilio.direccion_colonia || '';
+      templateData['domicilio.direccion_ciudad'] = domicilio.direccion_ciudad || '';
+      templateData['domicilio.codigo_postal'] = domicilio.codigo_postal || '';
+      templateData['domicilio.municipio'] = domicilio.municipio || '';
+      templateData['domicilio.estado'] = domicilio.estado || '';
+      templateData['domicilio.pais'] = domicilio.pais || '';
+      templateData['domicilio.referecia_localizacion'] = domicilio.referecia_localizacion || domicilio.referencia_localizacion || '';
+      templateData['domicilio.la_casa_es'] = domicilio.la_casa_es || '';
+      templateData['domicilio.telefono'] = domicilio.telefono || '';
+
+      // Convertir pareja (si existe)
+      const pareja = data.pareja || {};
+      templateData['pareja.apellido_paterno'] = pareja.apellido_paterno || '';
+      templateData['pareja.apellido_materno'] = pareja.apellido_materno || '';
+      templateData['pareja.primer_nombre'] = pareja.primer_nombre || '';
+      templateData['pareja.segundo_nombre'] = pareja.segundo_nombre || '';
+      templateData['pareja.estado_de_nacimiento'] = pareja.estado_de_nacimiento || '';
+      templateData['pareja.fecha_de_nacimiento'] = pareja.fecha_de_nacimiento || '';
+      templateData['pareja.ocupacion'] = pareja.ocupacion || '';
+      templateData['pareja.lugar_de_trabajo'] = pareja.lugar_de_trabajo || '';
+      templateData['pareja.clave_de_elector'] = pareja.clave_de_elector || '';
+      templateData['pareja.CURP'] = pareja.CURP || pareja.curp || '';
+      templateData['pareja.escolaridad'] = pareja.escolaridad || '';
+
+      // Convertir cargo_publico
+      const cargo_publico = data.cargo_publico || {};
+      templateData['cargo_publico.si'] = cargo_publico.si || '';
+      templateData['cargo_publico.no'] = cargo_publico.no || '';
+      templateData['cargo_publico_familiares.si'] = data.cargo_publico_familiares?.si || '';
+      templateData['cargo_publico_familiares.no'] = data.cargo_publico_familiares?.no || '';
+
+      // Convertir protesta
+      const protesta = data.protesta || {};
+      templateData['protesta.es_accionista'] = protesta.es_accionista || '';
+      templateData['protesta.tiene_relacion_con_accionista'] = protesta.tiene_relacion_con_accionista || '';
+
+      console.log(`[WORD-SERVICE] 📊 Campos convertidos a notación de punto:`, Object.keys(templateData));
+      return templateData;
+    }
+
+    // Si los datos vienen planos, crear notación de punto directamente
+    console.log(`[WORD-SERVICE] 🔄 Creando notación de punto desde datos planos para aval`);
+
+    // Campos aval con notación de punto
+    templateData['aval.primer_nombre'] = data.primer_nombre || '';
+    templateData['aval.segundo_nombre'] = data.segundo_nombre || '';
+    templateData['aval.apellido_paterno'] = data.apellido_paterno || '';
+    templateData['aval.apellido_materno'] = data.apellido_materno || '';
+    templateData['aval.clave_de_elector'] = data.clave_de_elector || '';
+    templateData['aval.CURP'] = data.CURP || data.curp || '';
+    templateData['aval.RFC'] = data.RFC || data.rfc || '';
+    templateData['aval.firma_electronica'] = data.firma_electronica || '';
+    templateData['aval.nacionalidad'] = data.nacionalidad || '';
+    templateData['aval.pais_de_nacimiento'] = data.pais_de_nacimiento || '';
+    templateData['aval.estado_de_nacimiento'] = data.estado_de_nacimiento || '';
+    templateData['aval.fecha_de_nacimiento'] = data.fecha_de_nacimiento || '';
+    templateData['aval.estado_civil'] = data.estado_civil || '';
+    templateData['aval.depentientes_economicos'] = data.depentientes_economicos || data.dependientes_economicos || '';
+    templateData['aval.sexo'] = data.sexo || '';
+    templateData['aval.escolaridad'] = data.escolaridad || '';
+    templateData['aval.actividad'] = data.actividad || '';
+    templateData['aval.profesion'] = data.profesion || '';
+    templateData['aval.ocupacion'] = data.ocupacion || '';
+
+    // Campos domicilio con notación de punto
+    templateData['domicilio.direccion_calle'] = data.direccion_calle || '';
+    templateData['domicilio.direccion_numero'] = data.direccion_numero || '';
+    templateData['domicilio.direccion_colonia'] = data.direccion_colonia || '';
+    templateData['domicilio.direccion_ciudad'] = data.direccion_ciudad || '';
+    templateData['domicilio.codigo_postal'] = data.codigo_postal || '';
+    templateData['domicilio.municipio'] = data.municipio || '';
+    templateData['domicilio.estado'] = data.estado || '';
+    templateData['domicilio.pais'] = data.pais || '';
+    templateData['domicilio.referecia_localizacion'] = data.referecia_localizacion || data.referencia_localizacion || '';
+    templateData['domicilio.la_casa_es'] = data.la_casa_es || '';
+    templateData['domicilio.telefono'] = data.telefono || '';
+
+    // Campos pareja con notación de punto (si vienen planos con prefijo pareja_)
+    templateData['pareja.apellido_paterno'] = data.pareja_apellido_paterno || '';
+    templateData['pareja.apellido_materno'] = data.pareja_apellido_materno || '';
+    templateData['pareja.primer_nombre'] = data.pareja_primer_nombre || '';
+    templateData['pareja.segundo_nombre'] = data.pareja_segundo_nombre || '';
+    templateData['pareja.estado_de_nacimiento'] = data.pareja_estado_de_nacimiento || '';
+    templateData['pareja.fecha_de_nacimiento'] = data.pareja_fecha_de_nacimiento || '';
+    templateData['pareja.ocupacion'] = data.pareja_ocupacion || '';
+    templateData['pareja.lugar_de_trabajo'] = data.pareja_lugar_de_trabajo || '';
+    templateData['pareja.clave_de_elector'] = data.pareja_clave_de_elector || '';
+    templateData['pareja.CURP'] = data.pareja_CURP || data.pareja_curp || '';
+    templateData['pareja.escolaridad'] = data.pareja_escolaridad || '';
+
+    // Campos cargo_publico con notación de punto
+    templateData['cargo_publico.si'] = data.cargo_publico_si || '';
+    templateData['cargo_publico.no'] = data.cargo_publico_no || '';
+    templateData['cargo_publico_familiares.si'] = data.cargo_publico_familiares_si || '';
+    templateData['cargo_publico_familiares.no'] = data.cargo_publico_familiares_no || '';
+
+    // Campos protesta con notación de punto
+    templateData['protesta.es_accionista'] = data.es_accionista || '';
+    templateData['protesta.tiene_relacion_con_accionista'] = data.tiene_relacion_con_accionista || '';
+
+    console.log(`[WORD-SERVICE] 🔄 Template data preparado para Aval`);
     console.log(`[WORD-SERVICE] 📊 Estructura de datos:`, JSON.stringify(templateData, null, 2));
 
     return templateData;
