@@ -287,7 +287,11 @@ class ExcelService {
       }
 
       if (!worksheet) {
-        throw new Error(`Hoja "${sheetName}" no encontrada en la plantilla`);
+        // Logging para debug - mostrar hojas disponibles
+        const availableSheets = workbook.worksheets.map(ws => `"${ws.name}"`);
+        console.log(`[EXCEL-SERVICE] ❌ Hoja "${sheetName}" no encontrada`);
+        console.log(`[EXCEL-SERVICE] 📋 Hojas disponibles:`, availableSheets);
+        throw new Error(`Hoja "${sheetName}" no encontrada en la plantilla. Hojas disponibles: ${availableSheets.join(', ')}`);
       }
 
       console.log(`[EXCEL-SERVICE] ✅ Plantilla cargada: ${templateName}`);
