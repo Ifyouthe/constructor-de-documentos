@@ -153,7 +153,7 @@ app.post('/webhook/generar-documento', async (req, res) => {
       } else if (formato === 'visita_domiciliaria') {
         dataConTemplate.template = 'Visita domiciliaria con etiquetas.docx';
       } else if (formato === 'ficha_aval') {
-        dataConTemplate.template = 'Ficha de identificación del aval con etiquetas.docx';
+        dataConTemplate.template = 'ficha_de_identificacion_del_aval_con_etiquetas.docx';
       }
 
       result = await wordService.processWebhookData(dataConTemplate);
@@ -256,7 +256,7 @@ app.post('/api/generar-documento', async (req, res) => {
           templateName = 'Visita domiciliaria con etiquetas.doc';
           break;
         case 'ficha_aval':
-          templateName = 'Ficha de identificación del aval con etiquetas.doc';
+          templateName = 'ficha_de_identificacion_del_aval_con_etiquetas.docx';
           break;
         default:
           templateName = formato;
