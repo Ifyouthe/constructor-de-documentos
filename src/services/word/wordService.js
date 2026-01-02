@@ -380,7 +380,7 @@ class WordService {
       templateData['domicilio.la_casa_es'] = domicilio.la_casa_es || '';
       templateData['domicilio.telefono'] = domicilio.telefono || '';
 
-      // Convertir cargo_publico
+      // Convertir cargo_publico (con notación anidada correcta para familiares)
       const cargo_publico = data.cargo_publico || {};
       templateData['cargo_publico.si'] = cargo_publico.si || '';
       templateData['cargo_publico.no'] = cargo_publico.no || '';
@@ -536,17 +536,61 @@ class WordService {
       templateData['pareja.CURP'] = pareja.CURP || pareja.curp || '';
       templateData['pareja.escolaridad'] = pareja.escolaridad || '';
 
-      // Convertir cargo_publico
+      // Convertir cargo_publico (con notación anidada correcta para familiares)
       const cargo_publico = data.cargo_publico || {};
       templateData['cargo_publico.si'] = cargo_publico.si || '';
       templateData['cargo_publico.no'] = cargo_publico.no || '';
-      templateData['cargo_publico_familiares.si'] = data.cargo_publico_familiares?.si || '';
-      templateData['cargo_publico_familiares.no'] = data.cargo_publico_familiares?.no || '';
+      templateData['cargo_publico.familiares.si'] = cargo_publico.familiares?.si || data.cargo_publico_familiares?.si || '';
+      templateData['cargo_publico.familiares.no'] = cargo_publico.familiares?.no || data.cargo_publico_familiares?.no || '';
 
       // Convertir protesta
       const protesta = data.protesta || {};
       templateData['protesta.es_accionista'] = protesta.es_accionista || '';
       templateData['protesta.tiene_relacion_con_accionista'] = protesta.tiene_relacion_con_accionista || '';
+
+      // Convertir asalariado (si existe)
+      const asalariado = data.asalariado || {};
+      templateData['asalariado.nombre_de_la_empresa'] = asalariado.nombre_de_la_empresa || '';
+      templateData['asalariado.ubicacion'] = asalariado.ubicacion || '';
+      templateData['asalariado.puesto'] = asalariado.puesto || '';
+      templateData['asalariado.calle'] = asalariado.calle || '';
+      templateData['asalariado.numero'] = asalariado.numero || '';
+      templateData['asalariado.colonia'] = asalariado.colonia || '';
+      templateData['asalariado.ciudad'] = asalariado.ciudad || '';
+      templateData['asalariado.codigo_postal'] = asalariado.codigo_postal || '';
+      templateData['asalariado.municipio'] = asalariado.municipio || '';
+      templateData['asalariado.estado'] = asalariado.estado || '';
+      templateData['asalariado.pais'] = asalariado.pais || '';
+      templateData['asalariado.telefono_de_la_empresa'] = asalariado.telefono_de_la_empresa || '';
+      templateData['asalariado.dias_trabajo'] = asalariado.dias_trabajo || '';
+      templateData['asalariado.dias_descanso'] = asalariado.dias_descanso || '';
+      templateData['asalariado.sueldo'] = asalariado.sueldo || '';
+      templateData['asalariado.otros_ingresos'] = asalariado.otros_ingresos || '';
+      templateData['asalariado.gastos'] = asalariado.gastos || '';
+      templateData['asalariado.ingreso_disponible'] = asalariado.ingreso_disponible || '';
+
+      // Convertir microempresario (si existe)
+      const microempresario = data.microempresario || {};
+      templateData['microempresario.negocio'] = microempresario.negocio || '';
+      templateData['microempresario.sector'] = microempresario.sector || '';
+      templateData['microempresario.tipo_de_negocio'] = microempresario.tipo_de_negocio || '';
+      templateData['microempresario.ubicacion'] = microempresario.ubicacion || '';
+      templateData['microempresario.local'] = microempresario.local || '';
+      templateData['microempresario.direccion.calle'] = microempresario.direccion?.calle || '';
+      templateData['microempresario.direccion.numero'] = microempresario.direccion?.numero || '';
+      templateData['microempresario.direccion.colonia'] = microempresario.direccion?.colonia || '';
+      templateData['microempresario.direccion.ciudad'] = microempresario.direccion?.ciudad || '';
+      templateData['microempresario.direccion.codigo_postal'] = microempresario.direccion?.codigo_postal || '';
+      templateData['microempresario.direccion.municipio'] = microempresario.direccion?.municipio || '';
+      templateData['microempresario.direccion.estado'] = microempresario.direccion?.estado || '';
+      templateData['microempresario.direccion.pais'] = microempresario.direccion?.pais || '';
+      templateData['microempresario.telefono_del_negocio'] = microempresario.telefono_del_negocio || '';
+      templateData['microempresario.años_en_el_negocio'] = microempresario.años_en_el_negocio || '';
+      templateData['microempresario.dias_trabajo'] = microempresario.dias_trabajo || '';
+      templateData['microempresario.dias_descanso'] = microempresario.dias_descanso || '';
+      templateData['microempresario.horario_de_trabajo'] = microempresario.horario_de_trabajo || '';
+      templateData['microempresario.otro_ingreso_o_negocio'] = microempresario.otro_ingreso_o_negocio || '';
+      templateData['microempresario.otro_ingreso_o_negocio.cual'] = microempresario.otro_ingreso_o_negocio?.cual || '';
 
       console.log(`[WORD-SERVICE] 📊 Campos convertidos a notación de punto:`, Object.keys(templateData));
       return templateData;
@@ -605,8 +649,8 @@ class WordService {
     // Campos cargo_publico con notación de punto
     templateData['cargo_publico.si'] = data.cargo_publico_si || '';
     templateData['cargo_publico.no'] = data.cargo_publico_no || '';
-    templateData['cargo_publico_familiares.si'] = data.cargo_publico_familiares_si || '';
-    templateData['cargo_publico_familiares.no'] = data.cargo_publico_familiares_no || '';
+    templateData['cargo_publico.familiares.si'] = data.cargo_publico_familiares_si || '';
+    templateData['cargo_publico.familiares.no'] = data.cargo_publico_familiares_no || '';
 
     // Campos protesta con notación de punto
     templateData['protesta.es_accionista'] = data.es_accionista || '';
