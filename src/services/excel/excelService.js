@@ -245,7 +245,7 @@ class ExcelService {
         case 'evaluacion':
         case 'ee':
           templateName = 'Evaluacion_Economica_con_Etiquetas.xlsx';
-          sheetName = 'EE Simple 2025';
+          sheetName = 'EE Simple 2025 ';  // Nombre real con espacio al final
           break;
         case 'Formato_Editable_Listo':
         case 'formato_editable':
