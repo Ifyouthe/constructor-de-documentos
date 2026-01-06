@@ -137,8 +137,11 @@ class WordService {
       console.log(`[WORD-SERVICE] 🔍 Primeros 10 campos con valores:`,
         Object.entries(templateData).slice(0, 10).map(([k,v]) => `${k}: "${v}"`));
 
+      // Limpiar datos antes de setear en el template para evitar "undefined"
+      const cleanedData = this.cleanUndefinedValues(templateData);
+
       // Setear los datos en el template
-      doc.setData(templateData);
+      doc.setData(cleanedData);
 
       // Renderizar el documento
       doc.render();
@@ -173,9 +176,12 @@ class WordService {
       // Preparar datos para reemplazo
       const templateData = this.prepareTemplateData(data);
 
+      // Limpiar datos antes de procesar placeholders
+      const cleanedData = this.cleanUndefinedValues(templateData);
+
       // Reemplazar placeholders en el texto
-      Object.keys(templateData).forEach(key => {
-        const value = templateData[key] || '';
+      Object.keys(cleanedData).forEach(key => {
+        const value = cleanedData[key];
         // Buscar diferentes formatos de placeholder
         const patterns = [
           new RegExp(`\\{\\{${key}\\}\\}`, 'g'),  // {{key}}
@@ -807,6 +813,28 @@ class WordService {
     }
   }
 
+  /**
+   * Limpiar valores undefined/null/vacíos para evitar que aparezca "undefined" en los documentos
+   */
+  cleanUndefinedValues(data) {
+    const cleaned = {};
+
+    Object.keys(data).forEach(key => {
+      const value = data[key];
+
+      // Si es undefined, null, o la string "undefined", convertir a string vacío
+      if (value === undefined || value === null || value === 'undefined' || value === '') {
+        cleaned[key] = '';
+      } else {
+        // Convertir a string y limpiar
+        const stringValue = String(value);
+        cleaned[key] = stringValue === 'undefined' ? '' : stringValue;
+      }
+    });
+
+    return cleaned;
+  }
+
   // ===== MÉTODOS UTILITARIOS =====
 
   /**
@@ -852,12 +880,17 @@ class WordService {
   }
 
   /**
-   * Filtrar datos no nulos
+   * Filtrar datos no nulos - convertir undefined/null a string vacío en lugar de eliminar
    */
   filterNonNullData(data) {
     const filtered = {};
     for (const [key, value] of Object.entries(data)) {
-      if (value !== null && value !== undefined && value !== '') {
+      // En lugar de eliminar campos undefined/null, convertirlos a string vacío
+      if (value === null || value === undefined || value === 'undefined') {
+        filtered[key] = '';
+      } else if (value === '') {
+        filtered[key] = '';
+      } else {
         filtered[key] = value;
       }
     }
