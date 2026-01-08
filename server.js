@@ -405,6 +405,91 @@ app.post('/api/generar-multiples-documentos', async (req, res) => {
 });
 
 /**
+ * Generar múltiples documentos y descargar como ZIP
+ */
+app.post('/webhook/generar-multiples-documentos-zip', async (req, res) => {
+  try {
+    console.log('[WEBHOOK-MULTIPLE-ZIP] 📨 Solicitud de generación múltiple recibida');
+
+    const { fichas_a_generar, datos_prospecto } = req.body;
+
+    // Validaciones básicas
+    if (!fichas_a_generar || !Array.isArray(fichas_a_generar)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Se requiere array "fichas_a_generar"',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (!datos_prospecto) {
+      return res.status(400).json({
+        success: false,
+        error: 'Se requiere objeto "datos_prospecto"',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Generar documentos
+    const resultado = await multipleDocumentsService.generateMultipleDocuments(fichas_a_generar, datos_prospecto);
+
+    if (!resultado.success) {
+      console.error('[WEBHOOK-MULTIPLE-ZIP] ❌ Error procesando:', resultado.error);
+      return res.status(400).json({
+        success: false,
+        error: resultado.error,
+        errores: resultado.errores,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Si solo hay un documento, descargarlo directamente
+    if (resultado.documentos_generados.length === 1) {
+      const doc = resultado.documentos_generados[0];
+      const buffer = Buffer.from(doc.fileData, 'base64');
+
+      const mimeType = doc.tipo_ficha.includes('visita_domiciliaria') ||
+                      doc.tipo_ficha.includes('obligado_solidario') ||
+                      doc.tipo_ficha.includes('aval')
+                      ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                      : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${doc.fileName}"`);
+      res.setHeader('Content-Length', buffer.length);
+      return res.send(buffer);
+    }
+
+    // Para múltiples documentos, crear un ZIP
+    const AdmZip = require('adm-zip');
+    const zip = new AdmZip();
+
+    for (const doc of resultado.documentos_generados) {
+      const buffer = Buffer.from(doc.fileData, 'base64');
+      zip.addFile(doc.fileName, buffer);
+    }
+
+    const zipBuffer = zip.toBuffer();
+    const zipFileName = `${datos_prospecto.primer_apellido || 'DOCUMENTOS'}_${datos_prospecto.codigo_de_prospecto || datos_prospecto.id_expediente || 'MULTIPLE'}.zip`;
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+    res.setHeader('Content-Length', zipBuffer.length);
+    res.send(zipBuffer);
+
+    console.log(`[WEBHOOK-MULTIPLE-ZIP] ✅ ZIP generado con ${resultado.documentos_generados.length} documentos`);
+
+  } catch (error) {
+    console.error('[WEBHOOK-MULTIPLE-ZIP] ❌ Error interno:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
  * Webhook para generar múltiples documentos (compatible con N8N)
  */
 app.post('/webhook/generar-multiples-documentos', async (req, res) => {
@@ -725,7 +810,8 @@ async function startServer() {
       console.log(`   • POST /webhook/generar-documento - Webhook principal`);
       console.log(`   • POST /api/generar-documento - API directa`);
       console.log(`   • POST /api/generar-multiples-documentos - API múltiples fichas`);
-      console.log(`   • POST /webhook/generar-multiples-documentos - Webhook múltiples fichas`);
+      console.log(`   • POST /webhook/generar-multiples-documentos - Webhook múltiples fichas (JSON)`);
+      console.log(`   • POST /webhook/generar-multiples-documentos-zip - Webhook múltiples fichas (descarga directa)`);
       console.log(`   • GET  /api/plantillas - Listar plantillas`);
       console.log(`   • GET  /api/documentos - Historial de documentos`);
       console.log('========================================');

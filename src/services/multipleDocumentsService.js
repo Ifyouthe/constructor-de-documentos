@@ -133,10 +133,13 @@ class MultipleDocumentsService {
         throw new Error(resultado.error);
       }
 
+      // Crear nombre de archivo con formato específico SOLO para múltiples documentos
+      const customFileName = this.buildCustomFileName(datosProspecto, tipoFicha, resultado.fileName);
+
       return {
         success: true,
         tipo_ficha: tipoFicha,
-        fileName: resultado.fileName,
+        fileName: customFileName,
         fileData: resultado.fileData,
         formato: resultado.formato || tipoFicha,
         metadata: {
@@ -886,6 +889,79 @@ class MultipleDocumentsService {
   mapSeguimientoPrevio(datos) {
     // Usar el mismo mapeo que seguimiento_credito
     return this.mapSeguimientoCredito(datos);
+  }
+
+  /**
+   * Construir nombre de archivo con formato: apellido_paterno_apellido_materno_primer_nombre_codigo_de_prospecto_ficha.(docx/xlsx)
+   */
+  buildCustomFileName(datos, tipoFicha, originalFileName) {
+    try {
+      console.log('[MULTIPLE-DOCS] 🔍 Datos para nombre personalizado:', {
+        primer_apellido: datos.primer_apellido,
+        segundo_apellido: datos.segundo_apellido,
+        primer_nombre: datos.primer_nombre,
+        codigo_de_prospecto: datos.codigo_de_prospecto,
+        id_expediente: datos.id_expediente,
+        tipoFicha: tipoFicha
+      });
+
+      // Extraer campos basándose en los mapeos
+      const apellidoPaterno = this.cleanForFileName(datos.primer_apellido || '');
+      const apellidoMaterno = this.cleanForFileName(datos.segundo_apellido || '');
+      const primerNombre = this.cleanForFileName(datos.primer_nombre || '');
+      const codigoProspecto = this.cleanForFileName(datos.codigo_de_prospecto || datos.id_expediente || '');
+
+      console.log('[MULTIPLE-DOCS] 🔍 Campos limpios:', {
+        apellidoPaterno, apellidoMaterno, primerNombre, codigoProspecto
+      });
+
+      // Determinar extensión basándose en el tipo de ficha
+      let extension;
+      switch (tipoFicha) {
+        case 'visita_domiciliaria':
+        case 'obligado_solidario':
+        case 'aval':
+          extension = 'docx';
+          break;
+        case 'identificacion_cliente':
+        case 'evaluacion_economica_simple':
+        case 'scoring_con_hc':
+        case 'scoring_sin_hc':
+        case 'seguimiento_credito':
+        case 'seguimiento_previo':
+        default:
+          extension = 'xlsx';
+          break;
+      }
+
+      // Construir nombre: apellido_paterno_apellido_materno_primer_nombre_codigo_de_prospecto_ficha.ext
+      const partes = [apellidoPaterno, apellidoMaterno, primerNombre, codigoProspecto, tipoFicha].filter(Boolean);
+      const nombreCustom = partes.join('_') + '.' + extension;
+
+      console.log('[MULTIPLE-DOCS] 📄 Nombre personalizado generado:', nombreCustom);
+      console.log('[MULTIPLE-DOCS] 📄 Nombre original era:', originalFileName);
+
+      return nombreCustom || originalFileName;
+
+    } catch (error) {
+      console.error('[MULTIPLE-DOCS] ❌ Error creando nombre personalizado:', error.message);
+      return originalFileName;
+    }
+  }
+
+  /**
+   * Limpiar string para nombre de archivo
+   */
+  cleanForFileName(str) {
+    if (!str) return '';
+    return String(str)
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remover acentos
+      .replace(/[^a-zA-Z0-9]/g, '_') // Reemplazar caracteres especiales con _
+      .replace(/_{2,}/g, '_') // Reemplazar múltiples _ con uno solo
+      .replace(/^_+|_+$/g, '') // Remover _ al inicio y final
+      .toUpperCase();
   }
 }
 

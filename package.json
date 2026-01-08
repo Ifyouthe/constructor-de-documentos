@@ -31,7 +31,8 @@
     "express-rate-limit": "^7.1.5",
     "docxtemplater": "^3.67.3",
     "pizzip": "^3.2.0",
-    "mammoth": "^1.11.0"
+    "mammoth": "^1.11.0",
+    "adm-zip": "^0.5.10"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
