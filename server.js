@@ -15,6 +15,7 @@ const { checkSupabaseConnection, storageUtils, documentUtils } = require('./src/
 // Importar servicios (ya vienen como instancias)
 const excelService = require('./src/services/excel/excelService');
 const wordService = require('./src/services/word/wordService');
+const multipleDocumentsService = require('./src/services/multipleDocumentsService');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -312,6 +313,176 @@ app.post('/api/generar-documento', async (req, res) => {
 });
 
 /**
+ * Generar múltiples documentos en una sola request
+ */
+app.post('/api/generar-multiples-documentos', async (req, res) => {
+  try {
+    console.log('[API-MULTIPLE] 📨 Request recibido para múltiples documentos');
+    console.log('[API-MULTIPLE] 📋 Fichas solicitadas:', req.body.fichas_a_generar);
+
+    // Validar estructura de entrada
+    const { fichas_a_generar, datos_prospecto } = req.body;
+
+    if (!fichas_a_generar || !Array.isArray(fichas_a_generar) || fichas_a_generar.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Se requiere un array "fichas_a_generar" con al menos una ficha'
+      });
+    }
+
+    if (!datos_prospecto || typeof datos_prospecto !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: 'Se requiere un objeto "datos_prospecto" con los datos del cliente'
+      });
+    }
+
+    // Validar fichas soportadas
+    const fichasSoportadas = [
+      'identificacion_cliente',
+      'visita_domiciliaria',
+      'evaluacion_economica_simple',
+      'obligado_solidario',
+      'aval',
+      'seguimiento_previo',
+      'scoring_con_hc',
+      'scoring_sin_hc',
+      'seguimiento_credito'
+    ];
+
+    const fichasNoSoportadas = fichas_a_generar.filter(ficha => !fichasSoportadas.includes(ficha));
+
+    if (fichasNoSoportadas.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Fichas no soportadas: ${fichasNoSoportadas.join(', ')}`,
+        fichas_soportadas: fichasSoportadas
+      });
+    }
+
+    console.log(`[API-MULTIPLE] 🔄 Procesando ${fichas_a_generar.length} fichas para prospecto ${datos_prospecto.codigo_de_prospecto || datos_prospecto.id_expediente || 'SIN_CODIGO'}`);
+
+    // Generar múltiples documentos
+    const resultado = await multipleDocumentsService.generateMultipleDocuments(fichas_a_generar, datos_prospecto);
+
+    if (!resultado.success) {
+      console.error('[API-MULTIPLE] ❌ Error en generación múltiple:', resultado.error);
+      return res.status(400).json({
+        success: false,
+        error: resultado.error || 'Error al generar los documentos',
+        detalles: resultado.detalles,
+        errores: resultado.errores || [],
+        metadata: resultado.metadata
+      });
+    }
+
+    console.log(`[API-MULTIPLE] ✅ Generación completada: ${resultado.metadata.total_generados}/${resultado.metadata.total_solicitados} documentos`);
+
+    // Respuesta con todos los documentos generados
+    res.status(200).json({
+      success: true,
+      data: {
+        documentos_generados: resultado.documentos_generados,
+        errores: resultado.errores,
+        resumen: {
+          total_solicitados: resultado.metadata.total_solicitados,
+          total_generados: resultado.metadata.total_generados,
+          total_errores: resultado.metadata.total_errores,
+          porcentaje_exito: Math.round((resultado.metadata.total_generados / resultado.metadata.total_solicitados) * 100)
+        }
+      },
+      timestamp: resultado.metadata.timestamp
+    });
+
+  } catch (error) {
+    console.error('[API-MULTIPLE] ❌ Error crítico:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor',
+      detalles: error.message
+    });
+  }
+});
+
+/**
+ * Webhook para generar múltiples documentos (compatible con N8N)
+ */
+app.post('/webhook/generar-multiples-documentos', async (req, res) => {
+  try {
+    console.log('[WEBHOOK-MULTIPLE] 📨 Solicitud de generación múltiple recibida');
+    console.log('[WEBHOOK-MULTIPLE] 📊 Datos:', JSON.stringify(req.body, null, 2));
+
+    const { fichas_a_generar, datos_prospecto } = req.body;
+
+    // Validaciones básicas
+    if (!fichas_a_generar || !Array.isArray(fichas_a_generar)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Se requiere array "fichas_a_generar"',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (!datos_prospecto) {
+      return res.status(400).json({
+        success: false,
+        error: 'Se requiere objeto "datos_prospecto"',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Generar documentos
+    const resultado = await multipleDocumentsService.generateMultipleDocuments(fichas_a_generar, datos_prospecto);
+
+    if (!resultado.success) {
+      console.error('[WEBHOOK-MULTIPLE] ❌ Error procesando:', resultado.error);
+      return res.status(400).json({
+        success: false,
+        error: resultado.error,
+        errores: resultado.errores,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Para webhook, devolver estructura compatible con N8N
+    // Nota: Los archivos se devuelven como base64, N8N puede procesarlos individualmente
+    const respuesta = {
+      success: true,
+      documentos: resultado.documentos_generados.map(doc => ({
+        tipo_ficha: doc.tipo_ficha,
+        fileName: doc.fileName,
+        mimeType: doc.tipo_ficha.includes('visita_domiciliaria') ||
+                  doc.tipo_ficha.includes('obligado_solidario') ||
+                  doc.tipo_ficha.includes('aval')
+                  ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                  : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        base64Data: doc.fileData,
+        metadata: doc.metadata
+      })),
+      errores: resultado.errores,
+      resumen: {
+        total_solicitados: resultado.metadata.total_solicitados,
+        total_generados: resultado.metadata.total_generados,
+        total_errores: resultado.metadata.total_errores
+      },
+      timestamp: resultado.metadata.timestamp
+    };
+
+    console.log(`[WEBHOOK-MULTIPLE] ✅ ${resultado.metadata.total_generados} documentos generados exitosamente`);
+
+    res.status(200).json(respuesta);
+
+  } catch (error) {
+    console.error('[WEBHOOK-MULTIPLE] ❌ Error interno:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
  * Listar plantillas disponibles
  */
 app.get('/api/plantillas', async (req, res) => {
@@ -553,6 +724,8 @@ async function startServer() {
       console.log(`🔗 Endpoints disponibles:`);
       console.log(`   • POST /webhook/generar-documento - Webhook principal`);
       console.log(`   • POST /api/generar-documento - API directa`);
+      console.log(`   • POST /api/generar-multiples-documentos - API múltiples fichas`);
+      console.log(`   • POST /webhook/generar-multiples-documentos - Webhook múltiples fichas`);
       console.log(`   • GET  /api/plantillas - Listar plantillas`);
       console.log(`   • GET  /api/documentos - Historial de documentos`);
       console.log('========================================');
