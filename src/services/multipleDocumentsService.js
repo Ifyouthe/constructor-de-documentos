@@ -19,6 +19,7 @@ class MultipleDocumentsService {
       seguimiento_previo: this.mapSeguimientoPrevio.bind(this),
       scoring_con_hc: this.mapScoringConHC.bind(this),
       scoring_sin_hc: this.mapScoringSinHC.bind(this),
+      scoring_con_etiquetas: this.mapScoringConEtiquetas.bind(this),
       seguimiento_credito: this.mapSeguimientoCredito.bind(this)
     };
 
@@ -114,6 +115,7 @@ class MultipleDocumentsService {
         case 'evaluacion_economica_simple':
         case 'scoring_con_hc':
         case 'scoring_sin_hc':
+        case 'scoring_con_etiquetas':
         case 'seguimiento_credito':
         case 'seguimiento_previo':
           resultado = await excelService.generateExcel(datosNormalizados.data, datosNormalizados.template);
@@ -167,7 +169,14 @@ class MultipleDocumentsService {
    */
   mapIdentificacionCliente(datos) {
     // Helper functions del mapeo original
-    const empty = (v) => (v === null || v === undefined ? "" : v);
+    const empty = (v) => {
+      if (v === null || v === undefined) return "";
+      if (typeof v === "string") {
+        const str = v.trim();
+        if (str === "" || str.toLowerCase() === "undefined" || str.toLowerCase() === "null") return "";
+      }
+      return v;
+    };
     const boolX = (v) => v === true || v === "true" || v === "X" ? "X" : "";
 
     // Fecha hoy DD/MM/YYYY
@@ -318,9 +327,7 @@ class MultipleDocumentsService {
       if (v === null || v === undefined) return "";
       if (typeof v === "string") {
         const s = v.trim();
-        if (!s) return "";
-        const low = s.toLowerCase();
-        if (low === "null" || low === "undefined") return "";
+        if (!s || s.toLowerCase() === "null" || s.toLowerCase() === "undefined") return "";
         return s;
       }
       if (typeof v === "number") return String(v);
@@ -401,9 +408,7 @@ class MultipleDocumentsService {
       if (v === null || v === undefined) return "";
       if (typeof v === "string") {
         const t = v.trim();
-        if (t === "") return "";
-        const low = t.toLowerCase();
-        if (low === "null" || low === "undefined") return "";
+        if (t === "" || t.toLowerCase() === "null" || t.toLowerCase() === "undefined") return "";
         return t;
       }
       return v;
@@ -660,9 +665,7 @@ class MultipleDocumentsService {
       if (v === null || v === undefined) return "";
       if (typeof v === "string") {
         const t = v.trim();
-        if (t === "") return "";
-        const low = t.toLowerCase();
-        if (low === "null" || low === "undefined") return "";
+        if (t === "" || t.toLowerCase() === "null" || t.toLowerCase() === "undefined") return "";
         return t;
       }
       return v;
@@ -738,9 +741,7 @@ class MultipleDocumentsService {
       if (v === null || v === undefined) return "";
       if (typeof v === "string") {
         const t = v.trim();
-        if (t === "") return "";
-        const low = t.toLowerCase();
-        if (low === "null" || low === "undefined") return "";
+        if (t === "" || t.toLowerCase() === "null" || t.toLowerCase() === "undefined") return "";
         return t;
       }
       return v;
@@ -813,9 +814,7 @@ class MultipleDocumentsService {
       if (v === null || v === undefined) return "";
       if (typeof v === "string") {
         const t = v.trim();
-        if (t === "") return "";
-        const low = t.toLowerCase();
-        if (low === "null" || low === "undefined") return "";
+        if (t === "" || t.toLowerCase() === "null" || t.toLowerCase() === "undefined") return "";
         return t;
       }
       return v;
@@ -884,6 +883,128 @@ class MultipleDocumentsService {
   }
 
   /**
+   * Mapeo para Scoring Con Etiquetas (Excel)
+   */
+  mapScoringConEtiquetas(datos) {
+    const cleanVal = (v) => {
+      if (v === null || v === undefined) return "";
+      if (typeof v === "string") {
+        const t = v.trim();
+        if (t === "" || t.toLowerCase() === "null" || t.toLowerCase() === "undefined") return "";
+        return t;
+      }
+      return v;
+    };
+
+    const boolX = (v) => v === true || v === "true" || v === "X" ? "X" : "";
+
+    // Mapeo basado en el mapfield_scoring.csv
+    const mappedData = {
+      // Datos básicos
+      nombre_sucursal: cleanVal(datos.sucursal_asesor) || cleanVal(datos.sucursal),
+      fecha: cleanVal(datos.fecha_scoring) || new Date().toLocaleDateString('es-MX'),
+      nombre_cliente: [datos.primer_nombre, datos.segundo_nombre, datos.primer_apellido, datos.segundo_apellido].filter(Boolean).join(' '),
+      secuencia_de_credito: cleanVal(datos.secuencia) || cleanVal(datos.secuencia_de_credito),
+
+      // Tipo de vivienda
+      'tipo_de_vivienda.propia': boolX(datos.vivienda_propia),
+      'tipo_de_vivienda.rentada': boolX(datos.vivienda_rentada),
+      'tipo_de_vivienda.habita_en_casa_de_familiar': boolX(datos.vivienda_familiar),
+      'tipo_de_vivienda.prestada_y_compartida': boolX(datos.vivienda_prestada),
+      'tipo_de_vivienda.rentada_y_compartida': boolX(datos.vivienda_rentada_compartida),
+
+      // Tiempo de vivir en domicilio
+      'tiempo_de_vivir_en_domicilio.mas_de_7_años': boolX(datos.tiempo_domicilio_mas_7),
+      'tiempo_de_vivir_en_domicilio.entre_5_y_7_años': boolX(datos.tiempo_domicilio_5_7),
+      'tiempo_de_vivir_en_domicilio.entre_3_y_5_años': boolX(datos.tiempo_domicilio_3_5),
+      'tiempo_de_vivir_en_domicilio.entre_1_y_3_años': boolX(datos.tiempo_domicilio_1_3),
+      'tiempo_de_vivir_en_domicilio.1_año_o_menos': boolX(datos.tiempo_domicilio_menos_1),
+
+      // Impresión de situación o vivienda
+      'impresion_de_situacion_o_vivienda.casa_con_ladrillo': boolX(datos.casa_ladrillo),
+      'impresion_de_situacion_o_vivienda.casa_en_obra_gris': boolX(datos.casa_obra_gris),
+      'impresion_de_situacion_o_vivienda.casa_en_obra_negra': boolX(datos.casa_obra_negra),
+      'impresion_de_situacion_o_vivienda.casa_en_mal_estado': boolX(datos.casa_mal_estado),
+      'impresion_de_situacion_o_vivienda.casa_en_mal_estado_y_condiciones_deficientes': boolX(datos.casa_condiciones_deficientes),
+
+      // Edad del solicitante
+      'edad_del_solicitante.entre_36_y_50_años': boolX(datos.edad_36_50),
+      'edad_del_solicitante.entre_51_y_74_años': boolX(datos.edad_51_74),
+      'edad_del_solicitante.entre_26_y_35_años': boolX(datos.edad_26_35),
+      'edad_del_solicitante.entre_22_y_25_años': boolX(datos.edad_22_25),
+      'edad_del_solicitante.entre_18_y_21_años': boolX(datos.edad_18_21),
+
+      // Estado civil
+      'estado_civil.casado_con_mas_de_3_dependientes': boolX(datos.casado_mas_3_dep),
+      'estado_civil.casado_con_menos_de_3_dependientes': boolX(datos.casado_menos_3_dep),
+      'estado_civil.union_libre_con_mas_de_3_años_juntos': boolX(datos.union_libre_mas_3),
+      'estado_civil.union_libre_con_menos_de_3_años_juntos': boolX(datos.union_libre_menos_3),
+      'estado_civil.separado_viudo_soltero_sin_dependientes': boolX(datos.separado_viudo_soltero),
+
+      // Solicitante
+      'solicitante.recomendado_por_mas_de_3_personas': boolX(datos.recomendado_mas_3),
+      'solicitante.es_conocido_pero_no_personalmente': boolX(datos.conocido_no_personal),
+      'solicitante.con_solo_2_referencias': boolX(datos.solo_2_referencias),
+      'solicitante.con_dificultad_para_referencias_e_informacion_imprecisa': boolX(datos.referencias_imprecisas),
+      'solicitante.con_dificultad_para_referencias_dudosas_y_comprometidas': boolX(datos.referencias_dudosas),
+
+      // Tiempo negocio
+      'tiempo_negocio.mas_de_5_años_con_mismo_giro': boolX(datos.negocio_mas_5_años),
+      'tiempo_negocio.de_3_a_5_años_con_mismo_giro': boolX(datos.negocio_3_5_años),
+      'tiempo_negocio.de_1_a_3_años_con_mismo_giro_o_similar': boolX(datos.negocio_1_3_años),
+      'tiempo_negocio.menos_de_1_año': boolX(datos.negocio_menos_1_año),
+      'tiempo_negocio.viene_de_otro_giro': boolX(datos.negocio_otro_giro),
+
+      // Ubicación y tipo
+      'ubicacion_y_tipo.negocio_fijo_local_propio': boolX(datos.negocio_local_propio),
+      'ubicacion_y_tipo.negocio_fijo_local_rentado': boolX(datos.negocio_local_rentado),
+      'ubicacion_y_tipo.negocio_semifijo': boolX(datos.negocio_semifijo),
+      'ubicacion_y_tipo.negocio_ambulante': boolX(datos.negocio_ambulante),
+      'ubicacion_y_tipo.venta_de_catalogo': boolX(datos.venta_catalogo),
+
+      // Tipo de actividad
+      'tipo_de_actividad.produccion_y_transformacion': boolX(datos.actividad_produccion),
+      'tipo_de_actividad.comercio_y_servicios': boolX(datos.actividad_comercio),
+      'tipo_de_actividad.artesanales_y_agropecuarias': boolX(datos.actividad_artesanal),
+      'tipo_de_actividad.venta_por_catalogo': boolX(datos.actividad_catalogo),
+      'tipo_de_actividad.transportista': boolX(datos.actividad_transporte),
+
+      // Información financiera
+      'informacion_financiera.entrega_estados_financieros': boolX(datos.entrega_estados_financieros),
+      'informacion_financiera.muestra_facturas_que_acreditan_ingresos': boolX(datos.facturas_acreditan_ingresos),
+      'informacion_financiera.muestra_facturas_que_no_acreditan_ingresos': boolX(datos.facturas_no_acreditan_ingresos),
+      'informacion_financiera.sin_comprobantes_informacion_no_consistente': boolX(datos.sin_comprobantes_inconsistente),
+      'informacion_financiera.respestas_evasivas_datos_sin_soporte': boolX(datos.respuestas_evasivas),
+
+      // Historial crediticio interno
+      'historial_crediticio.interno.0_atrasos_en_ultimo_credito': boolX(datos.historial_0_atrasos),
+      'historial_crediticio.interno.1_a_5_dias_de_atraso_en_su_ultimo_credito': boolX(datos.historial_1_5_dias),
+      'historial_crediticio.interno.6_a_15_dias_de_atraso_en_su_ultimo_credito': boolX(datos.historial_6_15_dias),
+      'historial_crediticio.interno.mora_recurrente_o_mas_de_15_dias_de_atraso_en_su_ultimo_credito': boolX(datos.historial_mora_recurrente),
+      'historial_crediticio.interno.cliente_nuevo': boolX(datos.historial_cliente_nuevo),
+
+      // Historial crediticio externo
+      'historial_crediticio.externo.BC_Score_igual_o_mayor_a_601.no_hit_mayor_a_650': boolX(datos.bc_score_601_mas),
+      'historial_crediticio.externo.BC_Score_de_501_a_600.no_hit_de_601_a_650': boolX(datos.bc_score_501_600),
+      'historial_crediticio.externo.BC_Score_de_401_a_500.no_hit_de_581_a_600': boolX(datos.bc_score_401_500),
+      'historial_crediticio.externo.BC_Score_de_301_a_400.no_hit_de_561_a_580': boolX(datos.bc_score_301_400),
+      'historial_crediticio.externo.BC_Score_menor_a_300.no_hit_igual_o_menor_a_560': boolX(datos.bc_score_menor_300),
+
+      // Capacidad de pago
+      'capacidad_de_pago.3_a_1_en_adelante': boolX(datos.capacidad_pago_3_1),
+      'capacidad_de_pago.entre_2.5_a_1_y_2.9_a_1': boolX(datos.capacidad_pago_25_29),
+      'capacidad_de_pago.entre_2_a_1_y_2.4_a_1': boolX(datos.capacidad_pago_2_24),
+      'capacidad_de_pago.entre_1.5_a_1_y_1.9_a_1': boolX(datos.capacidad_pago_15_19),
+      'capacidad_de_pago.igual_a_1.4_a_1': boolX(datos.capacidad_pago_14)
+    };
+
+    return {
+      data: mappedData,
+      template: 'scoring_etiquetas'
+    };
+  }
+
+  /**
    * Mapeo para Seguimiento Previo (Excel - alias de seguimiento_credito)
    */
   mapSeguimientoPrevio(datos) {
@@ -927,6 +1048,7 @@ class MultipleDocumentsService {
         case 'evaluacion_economica_simple':
         case 'scoring_con_hc':
         case 'scoring_sin_hc':
+        case 'scoring_con_etiquetas':
         case 'seguimiento_credito':
         case 'seguimiento_previo':
         default:
