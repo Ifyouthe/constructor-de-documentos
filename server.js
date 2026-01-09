@@ -357,6 +357,7 @@ app.post('/api/generar-multiples-documentos', async (req, res) => {
       'seguimiento_previo',
       'scoring_con_hc',
       'scoring_sin_hc',
+      'scoring',
       'seguimiento_credito'
     ];
 

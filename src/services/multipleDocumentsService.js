@@ -17,6 +17,7 @@ class MultipleDocumentsService {
       obligado_solidario: this.mapObligadoSolidario.bind(this),
       aval: this.mapAval.bind(this),
       seguimiento_previo: this.mapSeguimientoPrevio.bind(this),
+      scoring: this.mapScoringAuto.bind(this),
       scoring_con_hc: this.mapScoringConHC.bind(this),
       scoring_sin_hc: this.mapScoringSinHC.bind(this),
       scoring_con_etiquetas: this.mapScoringConEtiquetas.bind(this),
@@ -113,6 +114,7 @@ class MultipleDocumentsService {
       switch (tipoFicha) {
         case 'identificacion_cliente':
         case 'evaluacion_economica_simple':
+        case 'scoring':
         case 'scoring_con_hc':
         case 'scoring_sin_hc':
         case 'scoring_con_etiquetas':
@@ -178,6 +180,13 @@ class MultipleDocumentsService {
       return v;
     };
     const boolX = (v) => v === true || v === "true" || v === "X" ? "X" : "";
+
+    const nombreCliente = cleanVal(datos.nombre_cliente) || [
+      datos.primer_nombre,
+      datos.segundo_nombre,
+      datos.primer_apellido || datos.apellido_paterno,
+      datos.segundo_apellido || datos.apellido_materno
+    ].filter(Boolean).join(' ');
 
     // Fecha hoy DD/MM/YYYY
     const today = () => {
@@ -349,42 +358,74 @@ class MultipleDocumentsService {
       return parts.map(clean).filter(Boolean).join(sep).trim();
     };
 
+    const firstNonEmpty = (...values) => {
+      for (const value of values) {
+        const cleaned = clean(value);
+        if (cleaned !== "") return cleaned;
+      }
+      return "";
+    };
+
     const mappedData = {
       wa_id: clean(datos.wa_id),
       codigo_de_prospecto: clean(datos.codigo_de_prospecto) || clean(datos.id_expediente),
 
-      nombre_del_cliente: joinNonEmpty([
-        datos.primer_nombre,
-        datos.segundo_nombre,
-        datos.primer_apellido,
-        datos.segundo_apellido
-      ]),
+      nombre_del_cliente: firstNonEmpty(
+        datos.nombre_cliente,
+        joinNonEmpty([
+          datos.primer_nombre || datos.cliente_primer_nombre,
+          datos.segundo_nombre || datos.cliente_segundo_nombre,
+          datos.primer_apellido || datos.apellido_paterno || datos.cliente_apellido_paterno,
+          datos.segundo_apellido || datos.apellido_materno || datos.cliente_apellido_materno
+        ])
+      ),
 
-      fecha: clean(datos.fecha_visita) || new Date().toLocaleDateString('es-MX'),
+      fecha: clean(datos.fecha_visita) || clean(datos.fecha) || new Date().toLocaleDateString('es-MX'),
       grupo_al_que_pertenece: clean(datos.grupo),
       asesor: clean(datos.nombre_asesor),
-      sucursal: clean(datos.sucursal_asesor),
+      sucursal: firstNonEmpty(datos.sucursal_asesor, datos.nombre_sucursal),
 
       // Dirección
-      direccion_vialidad: clean(datos.direccion_calle),
-      direccion_numero: clean(datos.direccion_numero),
-      direccion_colonia: clean(datos.direccion_colonia),
-      direccion_ciudad: clean(datos.direccion_ciudad),
-      direccion_municipio: clean(datos.direccion_municipio),
-      direccion_estado: clean(datos.direccion_provincia),
-      direccion_codigo_postal: clean(datos.codigo_postal),
+      direccion_vialidad: firstNonEmpty(datos.direccion_calle, datos.datos_del_domicilio_direccion_calle),
+      direccion_numero: firstNonEmpty(datos.direccion_numero, datos.datos_del_domicilio_direccion_numero),
+      direccion_colonia: firstNonEmpty(datos.direccion_colonia, datos.datos_del_domicilio_direccion_colonia_o_barrio),
+      direccion_ciudad: firstNonEmpty(datos.direccion_ciudad, datos.datos_del_domicilio_localidad),
+      direccion_municipio: firstNonEmpty(datos.direccion_municipio, datos.datos_del_domicilio_municipio),
+      direccion_estado: firstNonEmpty(datos.direccion_provincia, datos.datos_del_domicilio_estado),
+      direccion_codigo_postal: firstNonEmpty(datos.codigo_postal, datos.datos_del_domicilio_direccion_codigo_postal),
 
       direccion_coincide_si: boolToX(datos.direccion_coincide_si),
       direccion_coincide_no: boolToX(datos.direccion_coincide_no),
 
-      observaciones_domicilio_del_cliente: clean(datos.observaciones_domicilio),
-      caracteristicas_principales_de_la_casa: clean(datos.la_casa_es),
-      calles_entre_las_que_se_encuentra_el_domicilio: clean(datos.calles_entre_domicilio),
-      lineas_o_rutas_de_transporte_para_llegar_a_domicilio: clean(datos.rutas_transporte),
-      tiempo_aproximado_para_llegar_a_domicilio: clean(datos.tiempo_llegar),
-      principales_referencias_de_ubicacion_del_domicilio: clean(datos.referencias_ubicacion),
-      tiempo_de_vivir_en_domicilio: clean(datos.tiempo_vivir_domicilio),
-      nombre_de_propietario_de_la_casa: clean(datos.propietario_casa),
+      observaciones_domicilio_del_cliente: firstNonEmpty(
+        datos.observaciones_domicilio,
+        datos.observaciones_domicilio_del_cliente
+      ),
+      caracteristicas_principales_de_la_casa: firstNonEmpty(datos.la_casa_es, datos.datos_del_domicilio_la_casa_es),
+      calles_entre_las_que_se_encuentra_el_domicilio: firstNonEmpty(
+        datos.calles_entre_domicilio,
+        datos.calles_entre_las_que_se_encuentra_el_domicilio
+      ),
+      lineas_o_rutas_de_transporte_para_llegar_a_domicilio: firstNonEmpty(
+        datos.rutas_transporte,
+        datos.lineas_o_rutas_de_transporte_para_llegar_a_domicilio
+      ),
+      tiempo_aproximado_para_llegar_a_domicilio: firstNonEmpty(
+        datos.tiempo_llegar,
+        datos.tiempo_aproximado_para_llegar_a_domicilio
+      ),
+      principales_referencias_de_ubicacion_del_domicilio: firstNonEmpty(
+        datos.referencias_ubicacion,
+        datos.datos_del_domicilio_referencia_de_localizacion
+      ),
+      tiempo_de_vivir_en_domicilio: firstNonEmpty(
+        datos.tiempo_vivir_domicilio,
+        datos.tiempo_de_vivir_en_domicilio
+      ),
+      nombre_de_propietario_de_la_casa: firstNonEmpty(
+        datos.propietario_casa,
+        datos.nombre_de_propietario_de_la_casa
+      ),
 
       negocio_misma_direccion_si: boolToX(datos.negocio_misma_direccion_si),
       negocio_misma_direccion_no: boolToX(datos.negocio_misma_direccion_no),
@@ -414,15 +455,30 @@ class MultipleDocumentsService {
       return v;
     };
 
+    const pickVal = (...values) => {
+      for (const value of values) {
+        const cleaned = cleanVal(value);
+        if (cleaned !== "") return cleaned;
+      }
+      return "";
+    };
+
+    const nombreCliente = pickVal(
+      datos.nombre_cliente,
+      [datos.primer_nombre, datos.segundo_nombre, datos.primer_apellido, datos.segundo_apellido].filter(Boolean).join(' '),
+      [datos.primer_nombre, datos.segundo_nombre, datos.apellido_paterno, datos.apellido_materno].filter(Boolean).join(' '),
+      [datos.cliente_primer_nombre, datos.cliente_segundo_nombre, datos.cliente_apellido_paterno, datos.cliente_apellido_materno].filter(Boolean).join(' ')
+    );
+
     const mappedData = {
       // Campos excluidos
-      sucursal: cleanVal(datos.sucursal_asesor),
-      fecha: cleanVal(datos.fecha_evaluacion) || new Date().toLocaleDateString('es-MX'),
-      nombre_del_cliente: [datos.primer_nombre, datos.segundo_nombre, datos.primer_apellido, datos.segundo_apellido].filter(Boolean).join(' '),
+      sucursal: pickVal(datos.sucursal_asesor, datos.nombre_sucursal),
+      fecha: pickVal(datos.fecha_evaluacion, datos.fecha, new Date().toLocaleDateString('es-MX')),
+      nombre_del_cliente: nombreCliente,
       secuencia: cleanVal(datos.secuencia),
-      actividad_principal: cleanVal(datos.actividad_principal),
-      grupo: cleanVal(datos.grupo),
-      BC_Score: cleanVal(datos.bc_score),
+      actividad_principal: pickVal(datos.actividad_principal, datos.actividad_economica_ocupacion),
+      grupo: pickVal(datos.grupo, datos.calc_grupo),
+      BC_Score: pickVal(datos.bc_score, datos.calc_bcscore),
       ICC: cleanVal(datos.icc),
       No_Hit: cleanVal(datos.no_hit),
       tipo_de_solicitante: cleanVal(datos.tipo_solicitante),
@@ -430,12 +486,12 @@ class MultipleDocumentsService {
       cuota_solicitada: cleanVal(datos.cuota_solicitada),
 
       // Etiquetas de ventas
-      concepto_de_venta_1: cleanVal(datos.concepto_venta_1),
-      concepto_de_venta_2: cleanVal(datos.concepto_venta_2),
-      concepto_de_venta_3: cleanVal(datos.concepto_venta_3),
-      concepto_de_venta_4: cleanVal(datos.concepto_venta_4),
-      concepto_de_venta_5: cleanVal(datos.concepto_venta_5),
-      concepto_de_venta_6: cleanVal(datos.concepto_venta_6),
+      concepto_de_venta_1: pickVal(datos.concepto_de_venta_1, datos.concepto_venta_1),
+      concepto_de_venta_2: pickVal(datos.concepto_de_venta_2, datos.concepto_venta_2),
+      concepto_de_venta_3: pickVal(datos.concepto_de_venta_3, datos.concepto_venta_3),
+      concepto_de_venta_4: pickVal(datos.concepto_de_venta_4, datos.concepto_venta_4),
+      concepto_de_venta_5: pickVal(datos.concepto_de_venta_5, datos.concepto_venta_5),
+      concepto_de_venta_6: pickVal(datos.concepto_de_venta_6, datos.concepto_venta_6),
 
       venta_1: cleanVal(datos.venta_1),
       venta_2: cleanVal(datos.venta_2),
@@ -477,34 +533,37 @@ class MultipleDocumentsService {
       gastos_generales: cleanVal(datos.gastos_generales),
       gastos_financieros: cleanVal(datos.gastos_financieros),
       otros_gastos: cleanVal(datos.otros_gastos),
-      costo_de_ventas: cleanVal(datos.costo_ventas),
+      costo_de_ventas: pickVal(datos.costo_de_ventas, datos.costo_ventas),
       utilidad_bruta: cleanVal(datos.utilidad_bruta),
       utilidad_neta: cleanVal(datos.utilidad_neta),
 
       // Ingresos de ganancia
-      ingreso_de_ganancia_1: cleanVal(datos.ingreso_ganancia_1),
-      ingreso_de_ganancia_2: cleanVal(datos.ingreso_ganancia_2),
-      ingreso_de_ganancia_3: cleanVal(datos.ingreso_ganancia_3),
-      ingreso_de_ganancia_4: cleanVal(datos.ingreso_ganancia_4),
-      ingreso_de_ganancia_5: cleanVal(datos.ingreso_ganancia_5),
-      ingreso_de_ganancia_6: cleanVal(datos.ingreso_ganancia_6),
+      ingreso_de_ganancia_1: pickVal(datos.ingreso_de_ganancia_1, datos.ingreso_ganancia_1),
+      ingreso_de_ganancia_2: pickVal(datos.ingreso_de_ganancia_2, datos.ingreso_ganancia_2),
+      ingreso_de_ganancia_3: pickVal(datos.ingreso_de_ganancia_3, datos.ingreso_ganancia_3),
+      ingreso_de_ganancia_4: pickVal(datos.ingreso_de_ganancia_4, datos.ingreso_ganancia_4),
+      ingreso_de_ganancia_5: pickVal(datos.ingreso_de_ganancia_5, datos.ingreso_ganancia_5),
+      ingreso_de_ganancia_6: pickVal(datos.ingreso_de_ganancia_6, datos.ingreso_ganancia_6),
 
       // Balance
       inventarios_activo: cleanVal(datos.inventarios_activo),
       caja_efectivo_activo: cleanVal(datos.caja_efectivo_activo),
       ahorro_bancos_activo: cleanVal(datos.ahorro_bancos_activo),
-      cuentas_por_cobrar_activo: cleanVal(datos.cuentas_cobrar_activo),
+      cuentas_por_cobrar_activo: pickVal(datos.cuentas_por_cobrar_activo, datos.cuentas_cobrar_activo),
       inventarios_pasivo: cleanVal(datos.inventarios_pasivo),
-      mobiliario_maquinaria_equipo_activo: cleanVal(datos.mobiliario_activo),
-      mobiliario_maquinaria_equipo_pasivo: cleanVal(datos.mobiliario_pasivo),
-      local_u_otros_bienes_del_negocio_activo: cleanVal(datos.local_activo),
-      local_u_otros_bienes_del_negocio_pasivo: cleanVal(datos.local_pasivo),
+      mobiliario_maquinaria_equipo_activo: pickVal(datos.mobiliario_maquinaria_equipo_activo, datos.mobiliario_activo),
+      mobiliario_maquinaria_equipo_pasivo: pickVal(datos.mobiliario_maquinaria_equipo_pasivo, datos.mobiliario_pasivo),
+      local_u_otros_bienes_del_negocio_activo: pickVal(datos.local_u_otros_bienes_del_negocio_activo, datos.local_activo),
+      local_u_otros_bienes_del_negocio_pasivo: pickVal(datos.local_u_otros_bienes_del_negocio_pasivo, datos.local_pasivo),
 
-      comentarios_y_observaciones_adicionales: cleanVal(datos.comentarios_observaciones),
-      monto_mayor_credito_obtenido: cleanVal(datos.monto_mayor_credito),
+      comentarios_y_observaciones_adicionales: pickVal(
+        datos.comentarios_y_observaciones_adicionales,
+        datos.comentarios_observaciones
+      ),
+      monto_mayor_credito_obtenido: pickVal(datos.monto_mayor_credito_obtenido, datos.monto_mayor_credito),
       monto_credito_anterior: cleanVal(datos.monto_credito_anterior),
       cuota_anterior: cleanVal(datos.cuota_anterior),
-      pago_a_la_semana: cleanVal(datos.pago_semanal)
+      pago_a_la_semana: pickVal(datos.pago_a_la_semana, datos.pago_semanal)
     };
 
     return {
@@ -658,6 +717,15 @@ class MultipleDocumentsService {
   }
 
   /**
+   * Mapeo para Scoring (auto: con HC o sin HC)
+   */
+  mapScoringAuto(datos) {
+    const hasValue = (v) => v !== null && v !== undefined && !(typeof v === "string" && v.trim() === "");
+    const tieneBuro = hasValue(datos.bc_score) || hasValue(datos.icc) || hasValue(datos.no_hit);
+    return tieneBuro ? this.mapScoringConHC(datos) : this.mapScoringSinHC(datos);
+  }
+
+  /**
    * Mapeo para Scoring Con Historial Crediticio (Excel)
    */
   mapScoringConHC(datos) {
@@ -671,33 +739,52 @@ class MultipleDocumentsService {
       return v;
     };
 
+    const pickVal = (...values) => {
+      for (const value of values) {
+        const cleaned = cleanVal(value);
+        if (cleaned !== "") return cleaned;
+      }
+      return "";
+    };
+
+    const nombreCompleto = pickVal(
+      datos.nombre_cliente,
+      [datos.primer_nombre, datos.segundo_nombre, datos.primer_apellido, datos.segundo_apellido].filter(Boolean).join(' '),
+      [datos.primer_nombre, datos.segundo_nombre, datos.apellido_paterno, datos.apellido_materno].filter(Boolean).join(' '),
+      [datos.cliente_primer_nombre, datos.cliente_segundo_nombre, datos.cliente_apellido_paterno, datos.cliente_apellido_materno].filter(Boolean).join(' ')
+    );
+
     // Mapeo basado en el excelService existente
     const mappedData = {
       // Datos básicos del cliente
       codigo_de_prospecto: cleanVal(datos.codigo_de_prospecto) || cleanVal(datos.id_expediente),
-      nombre: [datos.primer_nombre, datos.segundo_nombre, datos.primer_apellido, datos.segundo_apellido].filter(Boolean).join(' '),
-      apellido_paterno: cleanVal(datos.primer_apellido),
-      apellido_materno: cleanVal(datos.segundo_apellido),
-      telefono: cleanVal(datos.telefono),
-      email: cleanVal(datos.correo),
-      curp: cleanVal(datos.curp || datos.cedula),
-      fecha_nacimiento: cleanVal(datos.fecha_nacimiento),
+      nombre: nombreCompleto,
+      apellido_paterno: pickVal(datos.primer_apellido, datos.apellido_paterno, datos.cliente_apellido_paterno),
+      apellido_materno: pickVal(datos.segundo_apellido, datos.apellido_materno, datos.cliente_apellido_materno),
+      telefono: pickVal(datos.telefono, datos.datos_del_domicilio_telefono),
+      email: pickVal(datos.correo, datos.cliente_correo_electronico),
+      curp: pickVal(datos.curp, datos.cliente_curp, datos.cedula),
+      fecha_nacimiento: pickVal(datos.fecha_nacimiento, datos.fecha_de_nacimiento, datos.cliente_fecha_de_nacimiento),
       edad: cleanVal(datos.edad),
       estado_civil: cleanVal(datos.estado_civil),
-      sexo: cleanVal(datos.sexo),
+      sexo: pickVal(datos.sexo, datos.cliente_sexo),
 
       // Dirección
-      calle: cleanVal(datos.direccion_calle),
-      numero: cleanVal(datos.direccion_numero),
-      colonia: cleanVal(datos.direccion_colonia),
-      codigo_postal: cleanVal(datos.codigo_postal),
-      municipio: cleanVal(datos.municipio),
-      estado: cleanVal(datos.direccion_provincia),
+      calle: pickVal(datos.direccion_calle, datos.datos_del_domicilio_direccion_calle),
+      numero: pickVal(datos.direccion_numero, datos.datos_del_domicilio_direccion_numero),
+      colonia: pickVal(datos.direccion_colonia, datos.datos_del_domicilio_direccion_colonia_o_barrio),
+      codigo_postal: pickVal(
+        datos.codigo_postal,
+        datos.datos_del_domicilio_direccion_codigo_postal,
+        datos.codigo_postal_cliente
+      ),
+      municipio: pickVal(datos.municipio, datos.datos_del_domicilio_municipio),
+      estado: pickVal(datos.direccion_provincia, datos.datos_del_domicilio_estado, datos.estado_cliente),
 
       // Actividad económica
-      ocupacion: cleanVal(datos.ocupacion),
-      anos_en_el_negocio: cleanVal(datos.anios_negocio),
-      la_casa_es: cleanVal(datos.la_casa_es),
+      ocupacion: pickVal(datos.ocupacion, datos.actividad_economica_ocupacion),
+      anos_en_el_negocio: pickVal(datos.anios_negocio, datos.actividad_economica_anios_en_el_negocio),
+      la_casa_es: pickVal(datos.la_casa_es, datos.datos_del_domicilio_la_casa_es),
 
       // Evaluación económica
       cuanto_ganas: cleanVal(datos.cuanto_ganas),
@@ -706,7 +793,7 @@ class MultipleDocumentsService {
       egresos_mensuales: cleanVal(datos.egresos_mensuales),
 
       // Scoring específico (CON HC)
-      calc_bcscore: cleanVal(datos.bc_score) || cleanVal(datos.calc_bcscore),
+      calc_bcscore: pickVal(datos.bc_score, datos.calc_bcscore),
       'buro.BC_score': cleanVal(datos.bc_score),
       'buro.ICC': cleanVal(datos.icc),
       'buro.no_hit': cleanVal(datos.no_hit),
@@ -714,14 +801,26 @@ class MultipleDocumentsService {
       // Elección final
       ultima_oferta: cleanVal(datos.monto_aceptado),
       monto_aceptado: cleanVal(datos.monto_aceptado),
-      calc_capacidad_semanal: cleanVal(datos.pago_semanal),
-      pago_semanal: cleanVal(datos.pago_semanal),
+      calc_capacidad_semanal: pickVal(datos.pago_semanal, datos.pago_a_la_semana),
+      pago_semanal: pickVal(datos.pago_semanal, datos.pago_a_la_semana),
 
       // Referencias
-      referencia1_nombre: cleanVal(datos.referencia1_nombre),
-      referencia1_telefono: cleanVal(datos.referencia1_telefono),
-      referencia2_nombre: cleanVal(datos.referencia2_nombre),
-      referencia2_telefono: cleanVal(datos.referencia2_telefono),
+      referencia1_nombre: pickVal(
+        datos.referencia1_nombre,
+        datos.primera_referencia_personal_nombre_completo
+      ),
+      referencia1_telefono: pickVal(
+        datos.referencia1_telefono,
+        datos.primera_referencia_personal_telefono
+      ),
+      referencia2_nombre: pickVal(
+        datos.referencia2_nombre,
+        datos.segunda_referencia_personal_nombre_completo
+      ),
+      referencia2_telefono: pickVal(
+        datos.referencia2_telefono,
+        datos.segunda_referencia_personal_telefono
+      ),
 
       // Metadata
       wa_id: cleanVal(datos.wa_id)
@@ -747,33 +846,52 @@ class MultipleDocumentsService {
       return v;
     };
 
+    const pickVal = (...values) => {
+      for (const value of values) {
+        const cleaned = cleanVal(value);
+        if (cleaned !== "") return cleaned;
+      }
+      return "";
+    };
+
+    const nombreCompleto = pickVal(
+      datos.nombre_cliente,
+      [datos.primer_nombre, datos.segundo_nombre, datos.primer_apellido, datos.segundo_apellido].filter(Boolean).join(' '),
+      [datos.primer_nombre, datos.segundo_nombre, datos.apellido_paterno, datos.apellido_materno].filter(Boolean).join(' '),
+      [datos.cliente_primer_nombre, datos.cliente_segundo_nombre, datos.cliente_apellido_paterno, datos.cliente_apellido_materno].filter(Boolean).join(' ')
+    );
+
     // Similar a con HC pero sin algunos campos específicos de historial
     const mappedData = {
       // Datos básicos del cliente
       codigo_de_prospecto: cleanVal(datos.codigo_de_prospecto) || cleanVal(datos.id_expediente),
-      nombre: [datos.primer_nombre, datos.segundo_nombre, datos.primer_apellido, datos.segundo_apellido].filter(Boolean).join(' '),
-      apellido_paterno: cleanVal(datos.primer_apellido),
-      apellido_materno: cleanVal(datos.segundo_apellido),
-      telefono: cleanVal(datos.telefono),
-      email: cleanVal(datos.correo),
-      curp: cleanVal(datos.curp || datos.cedula),
-      fecha_nacimiento: cleanVal(datos.fecha_nacimiento),
+      nombre: nombreCompleto,
+      apellido_paterno: pickVal(datos.primer_apellido, datos.apellido_paterno, datos.cliente_apellido_paterno),
+      apellido_materno: pickVal(datos.segundo_apellido, datos.apellido_materno, datos.cliente_apellido_materno),
+      telefono: pickVal(datos.telefono, datos.datos_del_domicilio_telefono),
+      email: pickVal(datos.correo, datos.cliente_correo_electronico),
+      curp: pickVal(datos.curp, datos.cliente_curp, datos.cedula),
+      fecha_nacimiento: pickVal(datos.fecha_nacimiento, datos.fecha_de_nacimiento, datos.cliente_fecha_de_nacimiento),
       edad: cleanVal(datos.edad),
       estado_civil: cleanVal(datos.estado_civil),
-      sexo: cleanVal(datos.sexo),
+      sexo: pickVal(datos.sexo, datos.cliente_sexo),
 
       // Dirección
-      calle: cleanVal(datos.direccion_calle),
-      numero: cleanVal(datos.direccion_numero),
-      colonia: cleanVal(datos.direccion_colonia),
-      codigo_postal: cleanVal(datos.codigo_postal),
-      municipio: cleanVal(datos.municipio),
-      estado: cleanVal(datos.direccion_provincia),
+      calle: pickVal(datos.direccion_calle, datos.datos_del_domicilio_direccion_calle),
+      numero: pickVal(datos.direccion_numero, datos.datos_del_domicilio_direccion_numero),
+      colonia: pickVal(datos.direccion_colonia, datos.datos_del_domicilio_direccion_colonia_o_barrio),
+      codigo_postal: pickVal(
+        datos.codigo_postal,
+        datos.datos_del_domicilio_direccion_codigo_postal,
+        datos.codigo_postal_cliente
+      ),
+      municipio: pickVal(datos.municipio, datos.datos_del_domicilio_municipio),
+      estado: pickVal(datos.direccion_provincia, datos.datos_del_domicilio_estado, datos.estado_cliente),
 
       // Actividad económica
-      ocupacion: cleanVal(datos.ocupacion),
-      anos_en_el_negocio: cleanVal(datos.anios_negocio),
-      la_casa_es: cleanVal(datos.la_casa_es),
+      ocupacion: pickVal(datos.ocupacion, datos.actividad_economica_ocupacion),
+      anos_en_el_negocio: pickVal(datos.anios_negocio, datos.actividad_economica_anios_en_el_negocio),
+      la_casa_es: pickVal(datos.la_casa_es, datos.datos_del_domicilio_la_casa_es),
 
       // Evaluación económica
       cuanto_ganas: cleanVal(datos.cuanto_ganas),
@@ -782,19 +900,31 @@ class MultipleDocumentsService {
       egresos_mensuales: cleanVal(datos.egresos_mensuales),
 
       // Scoring específico (SIN HC) - menos campos de buro
-      calc_bcscore: cleanVal(datos.calc_bcscore) || cleanVal(datos.bc_score),
+      calc_bcscore: pickVal(datos.calc_bcscore, datos.bc_score),
 
       // Elección final
       ultima_oferta: cleanVal(datos.monto_aceptado),
       monto_aceptado: cleanVal(datos.monto_aceptado),
-      calc_capacidad_semanal: cleanVal(datos.pago_semanal),
-      pago_semanal: cleanVal(datos.pago_semanal),
+      calc_capacidad_semanal: pickVal(datos.pago_semanal, datos.pago_a_la_semana),
+      pago_semanal: pickVal(datos.pago_semanal, datos.pago_a_la_semana),
 
       // Referencias
-      referencia1_nombre: cleanVal(datos.referencia1_nombre),
-      referencia1_telefono: cleanVal(datos.referencia1_telefono),
-      referencia2_nombre: cleanVal(datos.referencia2_nombre),
-      referencia2_telefono: cleanVal(datos.referencia2_telefono),
+      referencia1_nombre: pickVal(
+        datos.referencia1_nombre,
+        datos.primera_referencia_personal_nombre_completo
+      ),
+      referencia1_telefono: pickVal(
+        datos.referencia1_telefono,
+        datos.primera_referencia_personal_telefono
+      ),
+      referencia2_nombre: pickVal(
+        datos.referencia2_nombre,
+        datos.segunda_referencia_personal_nombre_completo
+      ),
+      referencia2_telefono: pickVal(
+        datos.referencia2_telefono,
+        datos.segunda_referencia_personal_telefono
+      ),
 
       // Metadata
       wa_id: cleanVal(datos.wa_id)
@@ -827,7 +957,7 @@ class MultipleDocumentsService {
       // Básicos
       codigo_de_prospecto: cleanVal(datos.codigo_de_prospecto) || cleanVal(datos.id_expediente),
       wa_id: cleanVal(datos.wa_id),
-      nombre_cliente: [datos.primer_nombre, datos.segundo_nombre, datos.primer_apellido, datos.segundo_apellido].filter(Boolean).join(' '),
+      nombre_cliente: nombreCliente,
       nombre_asesor: cleanVal(datos.nombre_asesor),
 
       // Fechas
@@ -1027,9 +1157,15 @@ class MultipleDocumentsService {
       });
 
       // Extraer campos basándose en los mapeos
-      const apellidoPaterno = this.cleanForFileName(datos.primer_apellido || '');
-      const apellidoMaterno = this.cleanForFileName(datos.segundo_apellido || '');
-      const primerNombre = this.cleanForFileName(datos.primer_nombre || '');
+      const apellidoPaterno = this.cleanForFileName(
+        datos.primer_apellido || datos.apellido_paterno || datos.cliente_apellido_paterno || ''
+      );
+      const apellidoMaterno = this.cleanForFileName(
+        datos.segundo_apellido || datos.apellido_materno || datos.cliente_apellido_materno || ''
+      );
+      const primerNombre = this.cleanForFileName(
+        datos.primer_nombre || datos.cliente_primer_nombre || ''
+      );
       const codigoProspecto = this.cleanForFileName(datos.codigo_de_prospecto || datos.id_expediente || '');
 
       console.log('[MULTIPLE-DOCS] 🔍 Campos limpios:', {
