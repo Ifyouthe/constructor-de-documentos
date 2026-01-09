@@ -63,6 +63,15 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Extraer datos_prospecto para endpoints de multiples documentos
+const normalizeDatosProspecto = (body) => {
+  if (body && typeof body.datos_prospecto === 'object' && body.datos_prospecto !== null) {
+    return body.datos_prospecto;
+  }
+
+  return null;
+};
+
 // =============================================
 // ENDPOINTS PRINCIPALES
 // =============================================
@@ -321,7 +330,8 @@ app.post('/api/generar-multiples-documentos', async (req, res) => {
     console.log('[API-MULTIPLE] 📋 Fichas solicitadas:', req.body.fichas_a_generar);
 
     // Validar estructura de entrada
-    const { fichas_a_generar, datos_prospecto } = req.body;
+    const { fichas_a_generar } = req.body;
+    const datos_prospecto = normalizeDatosProspecto(req.body);
 
     if (!fichas_a_generar || !Array.isArray(fichas_a_generar) || fichas_a_generar.length === 0) {
       return res.status(400).json({
@@ -330,7 +340,7 @@ app.post('/api/generar-multiples-documentos', async (req, res) => {
       });
     }
 
-    if (!datos_prospecto || typeof datos_prospecto !== 'object') {
+    if (!datos_prospecto || typeof datos_prospecto !== 'object' || Object.keys(datos_prospecto).length === 0) {
       return res.status(400).json({
         success: false,
         error: 'Se requiere un objeto "datos_prospecto" con los datos del cliente'
@@ -411,7 +421,8 @@ app.post('/webhook/generar-multiples-documentos-zip', async (req, res) => {
   try {
     console.log('[WEBHOOK-MULTIPLE-ZIP] 📨 Solicitud de generación múltiple recibida');
 
-    const { fichas_a_generar, datos_prospecto } = req.body;
+    const { fichas_a_generar } = req.body;
+    const datos_prospecto = normalizeDatosProspecto(req.body);
 
     // Validaciones básicas
     if (!fichas_a_generar || !Array.isArray(fichas_a_generar)) {
@@ -422,7 +433,7 @@ app.post('/webhook/generar-multiples-documentos-zip', async (req, res) => {
       });
     }
 
-    if (!datos_prospecto) {
+    if (!datos_prospecto || typeof datos_prospecto !== 'object' || Object.keys(datos_prospecto).length === 0) {
       return res.status(400).json({
         success: false,
         error: 'Se requiere objeto "datos_prospecto"',
@@ -497,7 +508,8 @@ app.post('/webhook/generar-multiples-documentos', async (req, res) => {
     console.log('[WEBHOOK-MULTIPLE] 📨 Solicitud de generación múltiple recibida');
     console.log('[WEBHOOK-MULTIPLE] 📊 Datos:', JSON.stringify(req.body, null, 2));
 
-    const { fichas_a_generar, datos_prospecto } = req.body;
+    const { fichas_a_generar } = req.body;
+    const datos_prospecto = normalizeDatosProspecto(req.body);
 
     // Validaciones básicas
     if (!fichas_a_generar || !Array.isArray(fichas_a_generar)) {
@@ -508,7 +520,7 @@ app.post('/webhook/generar-multiples-documentos', async (req, res) => {
       });
     }
 
-    if (!datos_prospecto) {
+    if (!datos_prospecto || typeof datos_prospecto !== 'object' || Object.keys(datos_prospecto).length === 0) {
       return res.status(400).json({
         success: false,
         error: 'Se requiere objeto "datos_prospecto"',
