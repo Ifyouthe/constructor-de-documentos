@@ -159,6 +159,17 @@ class MappingService {
     // Construir índice plano
     const flatIndex = this.flattenObject(transformed);
 
+    // CRÍTICO: Agregar campos planos con guiones bajos al índice con notación de puntos
+    // Esto permite que campos como "cliente_primer_nombre" se mapeen a "cliente.primer_nombre"
+    for (const [key, value] of Object.entries(inputData)) {
+      if (key.includes('_')) {
+        const dottedKey = key.replace(/_/g, '.');
+        if (flatIndex[dottedKey] === undefined) {
+          flatIndex[dottedKey] = value;
+        }
+      }
+    }
+
     // Alias específicos para Sumate
     const aliasPairs = [
       // Cliente
@@ -396,6 +407,16 @@ class MappingService {
         const underscoreKey = path.replace(/\./g, '_');
         if (Object.prototype.hasOwnProperty.call(obj.__flatIndex, underscoreKey)) {
           return obj.__flatIndex[underscoreKey];
+        }
+      }
+
+      // Fallback: búsqueda case-insensitive en flatIndex
+      if (obj && obj.__flatIndex) {
+        const pathLower = path.toLowerCase();
+        for (const key in obj.__flatIndex) {
+          if (key.toLowerCase() === pathLower) {
+            return obj.__flatIndex[key];
+          }
         }
       }
 
