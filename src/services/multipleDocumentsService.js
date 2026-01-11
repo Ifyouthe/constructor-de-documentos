@@ -463,6 +463,15 @@ class MultipleDocumentsService {
       return "";
     };
 
+    // Convertir porcentaje: divide por 100 porque Excel tiene formato de porcentaje
+    const convertPorcentaje = (...values) => {
+      const value = pickVal(...values);
+      if (value === "") return "";
+      const numValue = parseFloat(value);
+      if (isNaN(numValue)) return value;
+      return numValue / 100; // 25 -> 0.25 -> Excel muestra como 25%
+    };
+
     const nombreCliente = pickVal(
       datos.nombre_cliente,
       [datos.primer_nombre, datos.segundo_nombre, datos.primer_apellido, datos.segundo_apellido].filter(Boolean).join(' '),
@@ -537,19 +546,19 @@ class MultipleDocumentsService {
       utilidad_bruta: cleanVal(datos.utilidad_bruta),
       utilidad_neta: cleanVal(datos.utilidad_neta),
 
-      // Ingresos de ganancia / Porcentajes de ganancia
-      ingreso_de_ganancia_1: pickVal(datos.ingreso_de_ganancia_1, datos.ingreso_ganancia_1, datos.porcentaje_de_ganancia_1),
-      ingreso_de_ganancia_2: pickVal(datos.ingreso_de_ganancia_2, datos.ingreso_ganancia_2, datos.porcentaje_de_ganancia_2),
-      ingreso_de_ganancia_3: pickVal(datos.ingreso_de_ganancia_3, datos.ingreso_ganancia_3, datos.porcentaje_de_ganancia_3),
-      ingreso_de_ganancia_4: pickVal(datos.ingreso_de_ganancia_4, datos.ingreso_ganancia_4, datos.porcentaje_de_ganancia_4),
-      ingreso_de_ganancia_5: pickVal(datos.ingreso_de_ganancia_5, datos.ingreso_ganancia_5, datos.porcentaje_de_ganancia_5),
-      ingreso_de_ganancia_6: pickVal(datos.ingreso_de_ganancia_6, datos.ingreso_ganancia_6, datos.porcentaje_de_ganancia_6),
-      porcentaje_de_ganancia_1: pickVal(datos.porcentaje_de_ganancia_1, datos.ingreso_de_ganancia_1),
-      porcentaje_de_ganancia_2: pickVal(datos.porcentaje_de_ganancia_2, datos.ingreso_de_ganancia_2),
-      porcentaje_de_ganancia_3: pickVal(datos.porcentaje_de_ganancia_3, datos.ingreso_de_ganancia_3),
-      porcentaje_de_ganancia_4: pickVal(datos.porcentaje_de_ganancia_4, datos.ingreso_de_ganancia_4),
-      porcentaje_de_ganancia_5: pickVal(datos.porcentaje_de_ganancia_5, datos.ingreso_de_ganancia_5),
-      porcentaje_de_ganancia_6: pickVal(datos.porcentaje_de_ganancia_6, datos.ingreso_de_ganancia_6),
+      // Ingresos de ganancia / Porcentajes de ganancia (dividir por 100 por formato Excel)
+      ingreso_de_ganancia_1: convertPorcentaje(datos.ingreso_de_ganancia_1, datos.ingreso_ganancia_1, datos.porcentaje_de_ganancia_1),
+      ingreso_de_ganancia_2: convertPorcentaje(datos.ingreso_de_ganancia_2, datos.ingreso_ganancia_2, datos.porcentaje_de_ganancia_2),
+      ingreso_de_ganancia_3: convertPorcentaje(datos.ingreso_de_ganancia_3, datos.ingreso_ganancia_3, datos.porcentaje_de_ganancia_3),
+      ingreso_de_ganancia_4: convertPorcentaje(datos.ingreso_de_ganancia_4, datos.ingreso_ganancia_4, datos.porcentaje_de_ganancia_4),
+      ingreso_de_ganancia_5: convertPorcentaje(datos.ingreso_de_ganancia_5, datos.ingreso_ganancia_5, datos.porcentaje_de_ganancia_5),
+      ingreso_de_ganancia_6: convertPorcentaje(datos.ingreso_de_ganancia_6, datos.ingreso_ganancia_6, datos.porcentaje_de_ganancia_6),
+      porcentaje_de_ganancia_1: convertPorcentaje(datos.porcentaje_de_ganancia_1, datos.ingreso_de_ganancia_1),
+      porcentaje_de_ganancia_2: convertPorcentaje(datos.porcentaje_de_ganancia_2, datos.ingreso_de_ganancia_2),
+      porcentaje_de_ganancia_3: convertPorcentaje(datos.porcentaje_de_ganancia_3, datos.ingreso_de_ganancia_3),
+      porcentaje_de_ganancia_4: convertPorcentaje(datos.porcentaje_de_ganancia_4, datos.ingreso_de_ganancia_4),
+      porcentaje_de_ganancia_5: convertPorcentaje(datos.porcentaje_de_ganancia_5, datos.ingreso_de_ganancia_5),
+      porcentaje_de_ganancia_6: convertPorcentaje(datos.porcentaje_de_ganancia_6, datos.ingreso_de_ganancia_6),
 
       // Balance
       inventarios_activo: cleanVal(datos.inventarios_activo),
