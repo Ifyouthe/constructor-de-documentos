@@ -501,10 +501,21 @@ class ExcelService {
         return;
       }
 
-      const value = dataMapping.get(raw_text);
+      let value = dataMapping.get(raw_text);
       const originalValue = cell.value;
 
       if (value !== undefined && String(value).trim() !== '') {
+        // Convertir porcentajes: dividir por 100 si es campo de porcentaje
+        // Excel tiene formato % que multiplica por 100, entonces 25 -> 0.25 -> Excel muestra 25%
+        const isPorcentaje = raw_text.includes('porcentaje_de_ganancia') || raw_text.includes('ingreso_de_ganancia');
+        if (isPorcentaje) {
+          const numValue = parseFloat(value);
+          if (!isNaN(numValue)) {
+            value = numValue / 100;
+            console.log(`[EXCEL-SERVICE]   🔢 Convirtiendo porcentaje: ${numValue} → ${value}`);
+          }
+        }
+
         cell.value = value;
         this.clearFill(cell);
         console.log(`[EXCEL-SERVICE]   ✅ ${addr}: "${originalValue}" → "${value}" (${raw_text})`);
