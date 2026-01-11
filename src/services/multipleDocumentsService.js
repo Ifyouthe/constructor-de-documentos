@@ -537,13 +537,19 @@ class MultipleDocumentsService {
       utilidad_bruta: cleanVal(datos.utilidad_bruta),
       utilidad_neta: cleanVal(datos.utilidad_neta),
 
-      // Ingresos de ganancia
-      ingreso_de_ganancia_1: pickVal(datos.ingreso_de_ganancia_1, datos.ingreso_ganancia_1),
-      ingreso_de_ganancia_2: pickVal(datos.ingreso_de_ganancia_2, datos.ingreso_ganancia_2),
-      ingreso_de_ganancia_3: pickVal(datos.ingreso_de_ganancia_3, datos.ingreso_ganancia_3),
-      ingreso_de_ganancia_4: pickVal(datos.ingreso_de_ganancia_4, datos.ingreso_ganancia_4),
-      ingreso_de_ganancia_5: pickVal(datos.ingreso_de_ganancia_5, datos.ingreso_ganancia_5),
-      ingreso_de_ganancia_6: pickVal(datos.ingreso_de_ganancia_6, datos.ingreso_ganancia_6),
+      // Ingresos de ganancia / Porcentajes de ganancia
+      ingreso_de_ganancia_1: pickVal(datos.ingreso_de_ganancia_1, datos.ingreso_ganancia_1, datos.porcentaje_de_ganancia_1),
+      ingreso_de_ganancia_2: pickVal(datos.ingreso_de_ganancia_2, datos.ingreso_ganancia_2, datos.porcentaje_de_ganancia_2),
+      ingreso_de_ganancia_3: pickVal(datos.ingreso_de_ganancia_3, datos.ingreso_ganancia_3, datos.porcentaje_de_ganancia_3),
+      ingreso_de_ganancia_4: pickVal(datos.ingreso_de_ganancia_4, datos.ingreso_ganancia_4, datos.porcentaje_de_ganancia_4),
+      ingreso_de_ganancia_5: pickVal(datos.ingreso_de_ganancia_5, datos.ingreso_ganancia_5, datos.porcentaje_de_ganancia_5),
+      ingreso_de_ganancia_6: pickVal(datos.ingreso_de_ganancia_6, datos.ingreso_ganancia_6, datos.porcentaje_de_ganancia_6),
+      porcentaje_de_ganancia_1: pickVal(datos.porcentaje_de_ganancia_1, datos.ingreso_de_ganancia_1),
+      porcentaje_de_ganancia_2: pickVal(datos.porcentaje_de_ganancia_2, datos.ingreso_de_ganancia_2),
+      porcentaje_de_ganancia_3: pickVal(datos.porcentaje_de_ganancia_3, datos.ingreso_de_ganancia_3),
+      porcentaje_de_ganancia_4: pickVal(datos.porcentaje_de_ganancia_4, datos.ingreso_de_ganancia_4),
+      porcentaje_de_ganancia_5: pickVal(datos.porcentaje_de_ganancia_5, datos.ingreso_de_ganancia_5),
+      porcentaje_de_ganancia_6: pickVal(datos.porcentaje_de_ganancia_6, datos.ingreso_de_ganancia_6),
 
       // Balance
       inventarios_activo: cleanVal(datos.inventarios_activo),
