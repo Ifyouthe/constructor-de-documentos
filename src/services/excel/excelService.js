@@ -254,6 +254,7 @@ class ExcelService {
           break;
         case 'Formato_Editable_Listo':
         case 'formato_editable':
+        case 'identificacion_cliente':
           templateName = 'Formato_Editable_Listo.xlsx';
           sheetName = 'Ficha de identificación';
           break;

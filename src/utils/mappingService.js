@@ -49,6 +49,7 @@ class MappingService {
           csvFileName = 'mapfield_evaluacion_economica.csv';
           break;
         case 'Formato_Editable_Listo':
+        case 'identificacion_cliente':
           csvFileName = 'Mapfield de Placeholders.csv';
           break;
         case 'general':
