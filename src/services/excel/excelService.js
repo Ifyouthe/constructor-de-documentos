@@ -291,6 +291,18 @@ class ExcelService {
                     workbook.worksheets[0];
       }
 
+      // Para seguimiento, intentar variaciones del nombre de hoja
+      if (!worksheet && formato === 'seguimiento') {
+        console.log(`[EXCEL-SERVICE] ⚠️ Hoja "${sheetName}" no encontrada para seguimiento, buscando alternativas`);
+        worksheet = workbook.getWorksheet('Hoja1') ||
+                    workbook.getWorksheet('hoja1') ||
+                    workbook.getWorksheet('Sheet1') ||
+                    workbook.worksheets[0];
+        if (worksheet) {
+          console.log(`[EXCEL-SERVICE] ✅ Usando hoja alternativa: "${worksheet.name}"`);
+        }
+      }
+
       if (!worksheet) {
         // Logging para debug - mostrar hojas disponibles
         const availableSheets = workbook.worksheets.map(ws => `"${ws.name}"`);
