@@ -470,7 +470,13 @@ class ExcelService {
   }
 
   getMasterCell(worksheet, addr) {
-    const cell = worksheet.getCell(addr);
+    // Si addr es un rango (ej: "C4:I4"), extraer solo la primera celda
+    let cellAddr = addr;
+    if (addr && addr.includes(':')) {
+      cellAddr = addr.split(':')[0];
+    }
+
+    const cell = worksheet.getCell(cellAddr);
     if (!cell) return cell;
     if (cell.isMerged && cell.master) {
       const { row, col } = cell.master;
