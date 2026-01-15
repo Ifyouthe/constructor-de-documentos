@@ -281,6 +281,10 @@ class ExcelService {
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(arrayBuffer);
 
+      // IMPORTANTE: Forzar recálculo de fórmulas al abrir el archivo
+      // Esto evita corrupción del calcChain.xml en plantillas con fórmulas complejas
+      workbook.calcProperties = { fullCalcOnLoad: true };
+
       let worksheet = workbook.getWorksheet(sheetName);
 
       // Para obligado solidario, si no encuentra la hoja específica, usar la principal
@@ -544,8 +548,10 @@ class ExcelService {
         console.log(`[EXCEL-SERVICE]   ✅ ${addr}: "${originalValue}" → "${value}" (${raw_text})`);
         setCount++;
       } else {
+        // IMPORTANTE: Usar cadena vacía en lugar de null para evitar corrupción
+        // null puede causar inconsistencias en celdas con formato especial o merged cells
         console.log(`[EXCEL-SERVICE]   ⚠️  ${addr}: sin valor para ${raw_text}`);
-        cell.value = null;
+        cell.value = '';
         nulled++;
       }
     });
