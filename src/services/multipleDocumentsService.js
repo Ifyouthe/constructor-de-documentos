@@ -967,6 +967,14 @@ class MultipleDocumentsService {
 
     const boolX = (v) => v === true || v === "true" || v === "X" ? "X" : "";
 
+    // Construir nombre del cliente
+    const nombreCliente = cleanVal(datos.nombre_cliente) || [
+      datos.primer_nombre,
+      datos.segundo_nombre,
+      datos.primer_apellido || datos.apellido_paterno,
+      datos.segundo_apellido || datos.apellido_materno
+    ].filter(Boolean).join(' ');
+
     // Mapeo según el template de seguimiento
     const mappedData = {
       // Básicos

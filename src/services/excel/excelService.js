@@ -241,6 +241,11 @@ class ExcelService {
           templateName = 'seguimiento del credito (1).xlsx';
           sheetName = 'Hoja1';
           break;
+        case 'scoring_etiquetas':
+        case 'scoring_con_etiquetas':
+          templateName = 'Scoring con Etiquetas.xlsx';
+          sheetName = 'Scoring';
+          break;
         case 'evaluacion_economica':
         case 'evaluacion':
         case 'ee':

@@ -40,6 +40,10 @@ class MappingService {
         case 'seguimiento':
           csvFileName = 'mapfield_seguimiento - Mapfield.csv';
           break;
+        case 'scoring_etiquetas':
+        case 'scoring_con_etiquetas':
+          csvFileName = 'mapfield_scoring.csv';
+          break;
         case 'evaluacion_economica':
         case 'Evaluacion_Economica_con_Etiquetas':
           csvFileName = 'mapfield_evaluacion_economica.csv';
