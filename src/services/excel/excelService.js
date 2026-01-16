@@ -4,14 +4,10 @@
 // =============================================
 
 const ExcelJS = require('exceljs');
-const AdmZip = require('adm-zip');
 const axios = require('axios');
 const crypto = require('crypto');
 const { storageUtils, documentUtils } = require('../../config/supabase');
 const mappingService = require('../../utils/mappingService');
-
-// Formatos que usan manipulación XML directa (tienen fórmulas avanzadas de Excel 365)
-const FORMATOS_XML_DIRECTO = ['con_HC', 'sin_HC', 'SCORING_CON_HC', 'SCORING_SIN_HC'];
 
 class ExcelService {
   constructor() {
@@ -37,13 +33,6 @@ class ExcelService {
 
       console.log(`[EXCEL-SERVICE] 🔄 Generando documento formato: ${formato}`);
 
-      // Para scoring con/sin HC usar manipulación XML directa (preserva fórmulas de Excel 365)
-      if (FORMATOS_XML_DIRECTO.includes(formato)) {
-        console.log(`[EXCEL-SERVICE] 📊 Usando manipulación XML directa para formato: ${formato}`);
-        return await this.generateExcelWithDirectXML(filteredData, formato);
-      }
-
-      // Para otros formatos, usar ExcelJS (flujo existente)
       const workbook = await this.createWorkbookFromTemplate(filteredData, formato);
       const buffer = await workbook.xlsx.writeBuffer();
 
@@ -66,131 +55,6 @@ class ExcelService {
       console.error('[EXCEL-SERVICE] ❌ Error en generateExcel:', error);
       return { success: false, error: `Error al generar el archivo Excel: ${error.message}` };
     }
-  }
-
-  /**
-   * Generar Excel usando manipulación XML directa (para plantillas con fórmulas avanzadas de Excel 365)
-   * Preserva HSTACK, FILTRAR, XLOOKUP y otras funciones modernas que ExcelJS/xlsx-populate corrompen
-   */
-  async generateExcelWithDirectXML(data, formato) {
-    try {
-      // Mapear formato a nombre de plantilla
-      let templateName;
-      if (formato === 'con_HC' || formato === 'SCORING_CON_HC') {
-        templateName = 'SCORING_CON_HC.xlsx';
-      } else if (formato === 'sin_HC' || formato === 'SCORING_SIN_HC') {
-        templateName = 'SCORING_SIN_HC.xlsx';
-      } else {
-        throw new Error(`Formato no soportado para XML directo: ${formato}`);
-      }
-
-      console.log(`[EXCEL-SERVICE] 📥 Descargando plantilla (XML directo): ${templateName}`);
-
-      // Descargar plantilla desde Supabase Storage
-      const templateResult = await storageUtils.downloadTemplate(templateName);
-      if (!templateResult.success) {
-        throw new Error(`Error descargando plantilla ${templateName}: ${templateResult.error}`);
-      }
-
-      // Convertir Blob a Buffer
-      const arrayBuffer = await templateResult.data.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      // Abrir el xlsx como ZIP
-      const zip = new AdmZip(buffer);
-
-      // Cargar mappings
-      await mappingService.loadMappings(formato);
-      const allMappings = mappingService.getAllMappings(formato);
-
-      console.log(`[EXCEL-SERVICE] 📊 Procesando ${allMappings.length} mappings con XML directo...`);
-
-      // Leer el XML de la hoja principal
-      const sheetEntry = zip.getEntry('xl/worksheets/sheet1.xml');
-      if (!sheetEntry) {
-        throw new Error('No se encontró sheet1.xml en la plantilla');
-      }
-
-      let sheetXml = sheetEntry.getData().toString('utf8');
-
-      // Leer sharedStrings.xml (donde están los textos)
-      const sharedStringsEntry = zip.getEntry('xl/sharedStrings.xml');
-      let sharedStringsXml = sharedStringsEntry ? sharedStringsEntry.getData().toString('utf8') : null;
-
-      // Crear el dataMapping
-      const dataMapping = mappingService.createDataMapping(data, formato);
-
-      let setCount = 0;
-
-      // Para cada mapping, reemplazar el placeholder en sharedStrings o directamente en la celda
-      for (const mapping of allMappings) {
-        const placeholder = mapping.raw_text; // {campo}
-        const value = dataMapping.get(placeholder);
-
-        if (value !== undefined && value !== null && String(value).trim() !== '') {
-          const valueStr = String(value);
-
-          // Buscar y reemplazar en sharedStrings.xml
-          if (sharedStringsXml && sharedStringsXml.includes(placeholder)) {
-            // Escapar caracteres especiales para XML
-            const escapedValue = this.escapeXml(valueStr);
-            sharedStringsXml = sharedStringsXml.split(placeholder).join(escapedValue);
-            console.log(`[EXCEL-SERVICE]   ✅ Reemplazado en sharedStrings: "${placeholder}" → "${valueStr}"`);
-            setCount++;
-          }
-          // También buscar directamente en el sheet (por si el valor está inline)
-          else if (sheetXml.includes(placeholder)) {
-            const escapedValue = this.escapeXml(valueStr);
-            sheetXml = sheetXml.split(placeholder).join(escapedValue);
-            console.log(`[EXCEL-SERVICE]   ✅ Reemplazado en sheet: "${placeholder}" → "${valueStr}"`);
-            setCount++;
-          } else {
-            console.log(`[EXCEL-SERVICE]   ⚠️ Placeholder no encontrado: ${placeholder}`);
-          }
-        }
-      }
-
-      console.log(`[EXCEL-SERVICE] ✍️ Total reemplazos realizados: ${setCount}`);
-
-      // Actualizar los archivos en el ZIP
-      zip.updateFile('xl/worksheets/sheet1.xml', Buffer.from(sheetXml, 'utf8'));
-      if (sharedStringsXml && sharedStringsEntry) {
-        zip.updateFile('xl/sharedStrings.xml', Buffer.from(sharedStringsXml, 'utf8'));
-      }
-
-      // Generar buffer de salida
-      const outputBuffer = zip.toBuffer();
-
-      // Construir nombre de archivo
-      const fileName = this.buildFileName(data, formato);
-      const base64Data = outputBuffer.toString('base64');
-      const dataHash = this.createDataHash(data);
-
-      return {
-        success: true,
-        fileName,
-        fileData: base64Data,
-        buffer: outputBuffer,
-        formato,
-        dataHash
-      };
-
-    } catch (error) {
-      console.error('[EXCEL-SERVICE] ❌ Error en generateExcelWithDirectXML:', error);
-      return { success: false, error: `Error generando Excel (XML directo): ${error.message}` };
-    }
-  }
-
-  /**
-   * Escapar caracteres especiales para XML
-   */
-  escapeXml(str) {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
   }
 
   /**
