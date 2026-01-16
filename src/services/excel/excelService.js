@@ -4,10 +4,14 @@
 // =============================================
 
 const ExcelJS = require('exceljs');
+const XlsxPopulate = require('xlsx-populate');
 const axios = require('axios');
 const crypto = require('crypto');
 const { storageUtils, documentUtils } = require('../../config/supabase');
 const mappingService = require('../../utils/mappingService');
+
+// Formatos que usan xlsx-populate (tienen fórmulas avanzadas de Excel 365)
+const FORMATOS_XLSX_POPULATE = ['con_HC', 'sin_HC', 'SCORING_CON_HC', 'SCORING_SIN_HC'];
 
 class ExcelService {
   constructor() {
@@ -31,10 +35,15 @@ class ExcelService {
         return { success: false, error: 'No hay datos válidos para procesar' };
       }
 
-      // No validar formato ya que ahora es dinámico basado en templates disponibles
-
       console.log(`[EXCEL-SERVICE] 🔄 Generando documento formato: ${formato}`);
 
+      // Para scoring con/sin HC usar xlsx-populate (preserva fórmulas de Excel 365)
+      if (FORMATOS_XLSX_POPULATE.includes(formato)) {
+        console.log(`[EXCEL-SERVICE] 📊 Usando xlsx-populate para formato: ${formato}`);
+        return await this.generateExcelWithXlsxPopulate(filteredData, formato);
+      }
+
+      // Para otros formatos, usar ExcelJS (flujo existente)
       const workbook = await this.createWorkbookFromTemplate(filteredData, formato);
       const buffer = await workbook.xlsx.writeBuffer();
 
@@ -56,6 +65,85 @@ class ExcelService {
     } catch (error) {
       console.error('[EXCEL-SERVICE] ❌ Error en generateExcel:', error);
       return { success: false, error: `Error al generar el archivo Excel: ${error.message}` };
+    }
+  }
+
+  /**
+   * Generar Excel usando xlsx-populate (para plantillas con fórmulas avanzadas de Excel 365)
+   * Preserva HSTACK, FILTRAR, XLOOKUP y otras funciones modernas
+   */
+  async generateExcelWithXlsxPopulate(data, formato) {
+    try {
+      // Mapear formato a nombre de plantilla
+      let templateName;
+      if (formato === 'con_HC' || formato === 'SCORING_CON_HC') {
+        templateName = 'SCORING_CON_HC.xlsx';
+      } else if (formato === 'sin_HC' || formato === 'SCORING_SIN_HC') {
+        templateName = 'SCORING_SIN_HC.xlsx';
+      } else {
+        throw new Error(`Formato no soportado para xlsx-populate: ${formato}`);
+      }
+
+      console.log(`[EXCEL-SERVICE] 📥 Descargando plantilla (xlsx-populate): ${templateName}`);
+
+      // Descargar plantilla desde Supabase Storage
+      const templateResult = await storageUtils.downloadTemplate(templateName);
+      if (!templateResult.success) {
+        throw new Error(`Error descargando plantilla ${templateName}: ${templateResult.error}`);
+      }
+
+      // Convertir Blob a Buffer
+      const arrayBuffer = await templateResult.data.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Cargar con xlsx-populate
+      const workbook = await XlsxPopulate.fromDataAsync(buffer);
+      const sheet = workbook.sheet(0); // Primera hoja
+
+      // Cargar mappings
+      await mappingService.loadMappings(formato);
+      const dataMapping = mappingService.createDataMapping(data, formato);
+
+      console.log(`[EXCEL-SERVICE] 📊 Aplicando ${dataMapping.size} valores con xlsx-populate...`);
+
+      // Aplicar valores según el mapfield
+      let setCount = 0;
+      for (const [placeholder, value] of dataMapping) {
+        // Obtener la celda para este placeholder
+        const cellAddress = mappingService.getCellForPlaceholder(placeholder, formato);
+        if (cellAddress && value !== undefined && value !== null && String(value).trim() !== '') {
+          try {
+            sheet.cell(cellAddress).value(value);
+            console.log(`[EXCEL-SERVICE]   ✅ ${cellAddress}: "${value}" (${placeholder})`);
+            setCount++;
+          } catch (cellError) {
+            console.warn(`[EXCEL-SERVICE]   ⚠️ Error en celda ${cellAddress}: ${cellError.message}`);
+          }
+        }
+      }
+
+      console.log(`[EXCEL-SERVICE] ✍️ Celdas seteadas con xlsx-populate: ${setCount}`);
+
+      // Generar buffer de salida
+      const outputBuffer = await workbook.outputAsync();
+
+      // Construir nombre de archivo
+      const fileName = this.buildFileName(data, formato);
+      const base64Data = Buffer.from(outputBuffer).toString('base64');
+      const dataHash = this.createDataHash(data);
+
+      return {
+        success: true,
+        fileName,
+        fileData: base64Data,
+        buffer: Buffer.from(outputBuffer),
+        formato,
+        dataHash
+      };
+
+    } catch (error) {
+      console.error('[EXCEL-SERVICE] ❌ Error en generateExcelWithXlsxPopulate:', error);
+      return { success: false, error: `Error generando Excel (xlsx-populate): ${error.message}` };
     }
   }
 
@@ -502,8 +590,16 @@ class ExcelService {
 
   clearAllRedFillsFromTemplate(worksheet) {
     let cleared = 0;
+    let skippedFormulas = 0;
     worksheet.eachRow((row) => {
       row.eachCell((cell) => {
+        // IMPORTANTE: No tocar celdas que contienen fórmulas para evitar corrupción
+        // ExcelJS no soporta bien funciones modernas de Excel 365 (HSTACK, FILTRAR, etc.)
+        if (cell.formula || (cell.value && typeof cell.value === 'object' && cell.value.formula)) {
+          skippedFormulas++;
+          return;
+        }
+
         if (cell.fill &&
             cell.fill.type === 'pattern' &&
             cell.fill.pattern === 'solid' &&
@@ -514,7 +610,7 @@ class ExcelService {
         }
       });
     });
-    console.log(`[EXCEL-SERVICE] 🧹 Limpiados ${cleared} rellenos rojos de la plantilla`);
+    console.log(`[EXCEL-SERVICE] 🧹 Limpiados ${cleared} rellenos rojos (${skippedFormulas} fórmulas preservadas)`);
   }
 
   fillCellsFromMappings(worksheet, dataMapping, mappings) {
