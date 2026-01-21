@@ -128,6 +128,15 @@ class WordService {
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
+        // Retornar string vacío para cualquier valor no encontrado (evita "undefined")
+        nullGetter: function(part) {
+          // Si el tag no tiene valor, retornar string vacío
+          if (!part.module) {
+            return '';
+          }
+          // Para módulos especiales (loops, etc), también retornar vacío
+          return '';
+        }
       });
 
       // Preparar datos para el template (aplanado) - pasar templateName
