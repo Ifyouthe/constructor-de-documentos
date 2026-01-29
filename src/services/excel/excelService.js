@@ -541,7 +541,7 @@ class ExcelService {
       if (value !== undefined && String(value).trim() !== '') {
         // Convertir porcentajes: dividir por 100 si es campo de porcentaje
         // Excel tiene formato % que multiplica por 100, entonces 25 -> 0.25 -> Excel muestra 25%
-        const isPorcentaje = raw_text.includes('porcentaje_de_ganancia') || raw_text.includes('ingreso_de_ganancia');
+        const isPorcentaje = raw_text.includes('porcentaje_de_ganancia') || raw_text.includes('ingreso_de_ganancia') || raw_text.includes('participacion');
         if (isPorcentaje) {
           const numValue = parseFloat(value);
           if (!isNaN(numValue)) {
