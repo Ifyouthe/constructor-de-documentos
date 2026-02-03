@@ -152,6 +152,11 @@ class MappingService {
       const rawValue = this.extractValueFromPath(transformedData, path);
       const excelValue = this.convertValueForExcel(rawValue);
 
+      // Debug para claves problemáticas con .2
+      if (path && path.includes('.2')) {
+        log.info(`DEBUG MAPPING: path="${path}" rawValue="${rawValue}" excelValue="${excelValue}"`);
+      }
+
       dataMapping.set(placeholderWithBraces, excelValue);
     });
 
@@ -413,8 +418,12 @@ class MappingService {
    */
   extractValueFromPath(obj, path) {
     try {
+      // Debug para claves problemáticas
+      const isDebugPath = path && path.includes('.2');
+
       // PRIMERO: Buscar clave literal exacta en flatIndex (para claves como "buro.no_hit.2")
       if (obj && obj.__flatIndex && Object.prototype.hasOwnProperty.call(obj.__flatIndex, path)) {
+        if (isDebugPath) log.info(`DEBUG EXTRACT: "${path}" encontrado en __flatIndex = "${obj.__flatIndex[path]}"`);
         return obj.__flatIndex[path];
       }
 
@@ -422,6 +431,7 @@ class MappingService {
       if (obj && obj.__flatIndex) {
         const underscoreKey = path.replace(/\./g, '_');
         if (Object.prototype.hasOwnProperty.call(obj.__flatIndex, underscoreKey)) {
+          if (isDebugPath) log.info(`DEBUG EXTRACT: "${path}" encontrado como underscore "${underscoreKey}"`);
           return obj.__flatIndex[underscoreKey];
         }
       }
@@ -431,6 +441,7 @@ class MappingService {
         const pathLower = path.toLowerCase();
         for (const key in obj.__flatIndex) {
           if (key.toLowerCase() === pathLower) {
+            if (isDebugPath) log.info(`DEBUG EXTRACT: "${path}" encontrado case-insensitive como "${key}"`);
             return obj.__flatIndex[key];
           }
         }
@@ -438,7 +449,13 @@ class MappingService {
 
       // Fallback: buscar en datos raíz con clave literal (para claves como "buro.no_hit.2" que vienen planas)
       if (obj && Object.prototype.hasOwnProperty.call(obj, path)) {
+        if (isDebugPath) log.info(`DEBUG EXTRACT: "${path}" encontrado en obj raíz`);
         return obj[path];
+      }
+
+      // Debug: mostrar qué hay en flatIndex para paths problemáticos
+      if (isDebugPath && obj && obj.__flatIndex) {
+        log.info(`DEBUG EXTRACT: "${path}" NO ENCONTRADO. Keys en flatIndex: ${Object.keys(obj.__flatIndex).join(', ')}`);
       }
 
       // Navegación anidada tradicional
