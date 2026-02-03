@@ -17,18 +17,18 @@ const excelService = require('./src/services/excel/excelService');
 const wordService = require('./src/services/word/wordService');
 const multipleDocumentsService = require('./src/services/multipleDocumentsService');
 
+// Sistema de logging
+const { createLogger, summarizeRequest } = require('./src/utils/logger');
+const log = createLogger('SERVER');
+
 const app = express();
 const PORT = process.env.PORT || 3003;
 
 // Configurar trust proxy para Traefik
 app.set('trust proxy', true);
 
-console.log('========================================');
-console.log('🏗️  INICIANDO CONSTRUCTOR DE DOCUMENTOS SUMATE');
-console.log('📋 Microservicio de Generación de Documentos Excel');
-console.log(`🔍 Puerto: ${PORT}`);
-console.log(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}`);
-console.log('========================================');
+log.info('Iniciando Constructor de Documentos SUMATE');
+log.info(`Puerto: ${PORT} | Entorno: ${process.env.NODE_ENV || 'development'}`);
 
 // =============================================
 // MIDDLEWARES
@@ -119,7 +119,7 @@ app.get('/health', async (req, res) => {
     res.status(hasErrors ? 503 : 200).json(healthStatus);
 
   } catch (error) {
-    console.error('[HEALTH] Error en health check:', error.message);
+    log.error('Error en health check:', error.message);
     res.status(500).json({
       status: 'error',
       timestamp: new Date().toISOString(),
@@ -134,8 +134,7 @@ app.get('/health', async (req, res) => {
  */
 app.post('/webhook/generar-documento', async (req, res) => {
   try {
-    console.log('[WEBHOOK] 📨 Solicitud de generación de documento recibida');
-    console.log('[WEBHOOK] 📊 Datos:', JSON.stringify(req.body, null, 2));
+    log.info('Request recibido: /webhook/generar-documento', summarizeRequest(req.body));
 
     // Detectar tipo de documento basado en formato o tipo especificado
     let formato = req.body.formato || req.body.template || 'general';
@@ -172,7 +171,7 @@ app.post('/webhook/generar-documento', async (req, res) => {
     }
 
     if (!result.success) {
-      console.error('[WEBHOOK] ❌ Error procesando:', result.error);
+      log.error('Error procesando documento:', result.error);
       return res.status(400).json({
         success: false,
         error: result.error,
@@ -180,11 +179,11 @@ app.post('/webhook/generar-documento', async (req, res) => {
       });
     }
 
-    console.log('[WEBHOOK] ✅ Documento generado exitosamente:', result.fileName);
+    log.info('Documento generado exitosamente:', result.fileName);
 
     // Verificar que el buffer existe
     if (!result.buffer) {
-      console.error('[WEBHOOK] ❌ No se generó buffer del documento');
+      log.error('No se genero buffer del documento');
       return res.status(500).json({
         success: false,
         error: 'No se pudo generar el archivo',
@@ -206,7 +205,7 @@ app.post('/webhook/generar-documento', async (req, res) => {
     res.send(result.buffer);
 
   } catch (error) {
-    console.error('[WEBHOOK] ❌ Error interno:', error.message);
+    log.error('Error interno en webhook:', error.message);
     res.status(500).json({
       success: false,
       error: 'Error interno del servidor',
@@ -220,9 +219,7 @@ app.post('/webhook/generar-documento', async (req, res) => {
  */
 app.post('/api/generar-documento', async (req, res) => {
   try {
-    // Log completo del request (limitado para no saturar logs)
-    console.log(`[API] 📨 Request recibido con campos:`, Object.keys(req.body).slice(0, 10));
-    console.log(`[API] 📋 Type: ${req.body.type}, Template: ${req.body.template}`);
+    log.info('Request recibido: /api/generar-documento', summarizeRequest(req.body));
 
     // IMPORTANTE: Detectar formato desde 'template' (lo que envía N8N)
     let formato = req.body.template || req.body.formato || 'general';
@@ -246,8 +243,7 @@ app.post('/api/generar-documento', async (req, res) => {
       });
     }
 
-    console.log(`[API] 📋 Generando documento - Template: ${formato}, Type: ${tipoDocumento}`);
-    console.log(`[API] 📊 Total campos de datos:`, Object.keys(data).length);
+    log.info(`Generando documento - Template: ${formato}, Type: ${tipoDocumento}, Campos: ${Object.keys(data).length}`);
 
     let result;
 
@@ -313,7 +309,7 @@ app.post('/api/generar-documento', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[API] ❌ Error:', error.message);
+    log.error('Error en API generar-documento:', error.message);
     res.status(500).json({
       success: false,
       error: 'Error interno del servidor'
@@ -326,8 +322,10 @@ app.post('/api/generar-documento', async (req, res) => {
  */
 app.post('/api/generar-multiples-documentos', async (req, res) => {
   try {
-    console.log('[API-MULTIPLE] 📨 Request recibido para múltiples documentos');
-    console.log('[API-MULTIPLE] 📋 Fichas solicitadas:', req.body.fichas_a_generar);
+    log.info('Request recibido: /api/generar-multiples-documentos', {
+      fichas: req.body.fichas_a_generar,
+      tiene_datos: !!req.body.datos_prospecto
+    });
 
     // Validar estructura de entrada
     const { fichas_a_generar } = req.body;
@@ -371,13 +369,13 @@ app.post('/api/generar-multiples-documentos', async (req, res) => {
       });
     }
 
-    console.log(`[API-MULTIPLE] 🔄 Procesando ${fichas_a_generar.length} fichas para prospecto ${datos_prospecto.codigo_de_prospecto || datos_prospecto.id_expediente || 'SIN_CODIGO'}`);
+    log.info(`Procesando ${fichas_a_generar.length} fichas para prospecto ${datos_prospecto.codigo_de_prospecto || datos_prospecto.id_expediente || 'SIN_CODIGO'}`);
 
     // Generar múltiples documentos
     const resultado = await multipleDocumentsService.generateMultipleDocuments(fichas_a_generar, datos_prospecto);
 
     if (!resultado.success) {
-      console.error('[API-MULTIPLE] ❌ Error en generación múltiple:', resultado.error);
+      log.error('Error en generacion multiple:', resultado.error);
       return res.status(400).json({
         success: false,
         error: resultado.error || 'Error al generar los documentos',
@@ -387,7 +385,7 @@ app.post('/api/generar-multiples-documentos', async (req, res) => {
       });
     }
 
-    console.log(`[API-MULTIPLE] ✅ Generación completada: ${resultado.metadata.total_generados}/${resultado.metadata.total_solicitados} documentos`);
+    log.info(`Generacion completada: ${resultado.metadata.total_generados}/${resultado.metadata.total_solicitados} documentos`);
 
     // Respuesta con todos los documentos generados
     res.status(200).json({
@@ -406,7 +404,7 @@ app.post('/api/generar-multiples-documentos', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[API-MULTIPLE] ❌ Error crítico:', error.message);
+    log.error('Error critico en API multiple:', error.message);
     res.status(500).json({
       success: false,
       error: 'Error interno del servidor',
@@ -420,7 +418,7 @@ app.post('/api/generar-multiples-documentos', async (req, res) => {
  */
 app.post('/webhook/generar-multiples-documentos-zip', async (req, res) => {
   try {
-    console.log('[WEBHOOK-MULTIPLE-ZIP] 📨 Solicitud de generación múltiple recibida');
+    log.info('Request recibido: /webhook/generar-multiples-documentos-zip', summarizeRequest(req.body));
 
     const { fichas_a_generar } = req.body;
     const datos_prospecto = normalizeDatosProspecto(req.body);
@@ -446,7 +444,7 @@ app.post('/webhook/generar-multiples-documentos-zip', async (req, res) => {
     const resultado = await multipleDocumentsService.generateMultipleDocuments(fichas_a_generar, datos_prospecto);
 
     if (!resultado.success) {
-      console.error('[WEBHOOK-MULTIPLE-ZIP] ❌ Error procesando:', resultado.error);
+      log.error('Error en webhook-multiple-zip:', resultado.error);
       return res.status(400).json({
         success: false,
         error: resultado.error,
@@ -489,10 +487,10 @@ app.post('/webhook/generar-multiples-documentos-zip', async (req, res) => {
     res.setHeader('Content-Length', zipBuffer.length);
     res.send(zipBuffer);
 
-    console.log(`[WEBHOOK-MULTIPLE-ZIP] ✅ ZIP generado con ${resultado.documentos_generados.length} documentos`);
+    log.info(`ZIP generado con ${resultado.documentos_generados.length} documentos`);
 
   } catch (error) {
-    console.error('[WEBHOOK-MULTIPLE-ZIP] ❌ Error interno:', error.message);
+    log.error('Error interno en webhook-multiple-zip:', error.message);
     res.status(500).json({
       success: false,
       error: 'Error interno del servidor',
@@ -506,8 +504,7 @@ app.post('/webhook/generar-multiples-documentos-zip', async (req, res) => {
  */
 app.post('/webhook/generar-multiples-documentos', async (req, res) => {
   try {
-    console.log('[WEBHOOK-MULTIPLE] 📨 Solicitud de generación múltiple recibida');
-    console.log('[WEBHOOK-MULTIPLE] 📊 Datos:', JSON.stringify(req.body, null, 2));
+    log.info('Request recibido: /webhook/generar-multiples-documentos', summarizeRequest(req.body));
 
     const { fichas_a_generar } = req.body;
     const datos_prospecto = normalizeDatosProspecto(req.body);
@@ -533,7 +530,7 @@ app.post('/webhook/generar-multiples-documentos', async (req, res) => {
     const resultado = await multipleDocumentsService.generateMultipleDocuments(fichas_a_generar, datos_prospecto);
 
     if (!resultado.success) {
-      console.error('[WEBHOOK-MULTIPLE] ❌ Error procesando:', resultado.error);
+      log.error('Error en webhook-multiple:', resultado.error);
       return res.status(400).json({
         success: false,
         error: resultado.error,
@@ -566,12 +563,12 @@ app.post('/webhook/generar-multiples-documentos', async (req, res) => {
       timestamp: resultado.metadata.timestamp
     };
 
-    console.log(`[WEBHOOK-MULTIPLE] ✅ ${resultado.metadata.total_generados} documentos generados exitosamente`);
+    log.info(`${resultado.metadata.total_generados} documentos generados exitosamente`);
 
     res.status(200).json(respuesta);
 
   } catch (error) {
-    console.error('[WEBHOOK-MULTIPLE] ❌ Error interno:', error.message);
+    log.error('Error interno en webhook-multiple:', error.message);
     res.status(500).json({
       success: false,
       error: 'Error interno del servidor',
@@ -609,7 +606,7 @@ app.get('/api/plantillas', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[API] ❌ Error listando plantillas:', error.message);
+    log.error('Error listando plantillas:', error.message);
     res.status(500).json({
       success: false,
       error: 'Error obteniendo plantillas'
@@ -653,7 +650,7 @@ app.get('/api/documentos/:pacienteId?', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[API] ❌ Error obteniendo historial:', error.message);
+    log.error('Error obteniendo historial:', error.message);
     res.status(500).json({
       success: false,
       error: 'Error obteniendo historial de documentos'
@@ -698,7 +695,7 @@ app.get('/api/descargar/:documentId', async (req, res) => {
     res.redirect(urlResult.url);
 
   } catch (error) {
-    console.error('[API] ❌ Error en descarga:', error.message);
+    log.error('Error en descarga:', error.message);
     res.status(500).json({
       success: false,
       error: 'Error procesando descarga'
@@ -760,7 +757,7 @@ app.get('/api/stats', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[STATS] ❌ Error obteniendo estadísticas:', error.message);
+    log.error('Error obteniendo estadisticas:', error.message);
     res.status(500).json({
       success: false,
       error: 'Error obteniendo estadísticas'
@@ -782,7 +779,7 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error('[ERROR]', err.stack);
+  log.error('Error no manejado:', err.message);
   res.status(500).json({
     success: false,
     error: 'Error interno del servidor'
@@ -799,48 +796,38 @@ async function startServer() {
     const supabaseCheck = await checkSupabaseConnection();
 
     if (!supabaseCheck.success) {
-      console.error('[INIT] ❌ Error conectando a Supabase:', supabaseCheck.error);
+      log.error('Error conectando a Supabase:', supabaseCheck.error);
     } else {
-      console.log('[INIT] ✅ Supabase conectado');
+      log.info('Supabase conectado');
     }
 
     // Verificar storage
     const templatesCheck = await storageUtils.listTemplates();
     if (templatesCheck.success) {
-      console.log(`[INIT] ✅ Storage verificado - ${templatesCheck.templates.length} plantillas disponibles`);
+      log.info(`Storage verificado - ${templatesCheck.templates.length} plantillas disponibles`);
     } else {
-      console.warn(`[INIT] ⚠️ Warning con storage: ${templatesCheck.error}`);
+      log.warn('Warning con storage:', templatesCheck.error);
     }
 
     // Adjuntar Supabase a la aplicación para uso en rutas
     app.locals.supabase = require('./src/config/supabase');
 
     const server = app.listen(PORT, () => {
-      console.log(`🚀 Constructor de Documentos Sumate ejecutándose en puerto ${PORT}`);
-      console.log(`📊 Health check: http://localhost:${PORT}/health`);
-      console.log(`📈 Estadísticas: http://localhost:${PORT}/api/stats`);
-      console.log(`🔗 Endpoints disponibles:`);
-      console.log(`   • POST /webhook/generar-documento - Webhook principal`);
-      console.log(`   • POST /api/generar-documento - API directa`);
-      console.log(`   • POST /api/generar-multiples-documentos - API múltiples fichas`);
-      console.log(`   • POST /webhook/generar-multiples-documentos - Webhook múltiples fichas (JSON)`);
-      console.log(`   • POST /webhook/generar-multiples-documentos-zip - Webhook múltiples fichas (descarga directa)`);
-      console.log(`   • GET  /api/plantillas - Listar plantillas`);
-      console.log(`   • GET  /api/documentos - Historial de documentos`);
-      console.log('========================================');
+      log.info(`Servidor ejecutandose en puerto ${PORT}`);
+      log.info(`Health: http://localhost:${PORT}/health | Stats: http://localhost:${PORT}/api/stats`);
     });
 
     // Manejo de cierre graceful
     process.on('SIGTERM', () => {
-      console.log('[SHUTDOWN] Recibida señal SIGTERM, cerrando servidor...');
+      log.info('Recibida senal SIGTERM, cerrando servidor...');
       server.close(() => {
-        console.log('[SHUTDOWN] Servidor cerrado correctamente');
+        log.info('Servidor cerrado correctamente');
         process.exit(0);
       });
     });
 
   } catch (error) {
-    console.error('[INIT] ❌ Error inicializando servidor:', error.message);
+    log.error('Error inicializando servidor:', error.message);
     process.exit(1);
   }
 }

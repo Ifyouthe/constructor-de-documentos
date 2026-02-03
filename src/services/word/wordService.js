@@ -8,10 +8,13 @@ const PizZip = require('pizzip');
 const crypto = require('crypto');
 const mammoth = require('mammoth');
 const { storageUtils, documentUtils } = require('../../config/supabase');
+const { createLogger, createTemplateTracker } = require('../../utils/logger');
+
+const log = createLogger('WORD');
 
 class WordService {
   constructor() {
-    console.log('[WORD-SERVICE] ✅ Servicio inicializado');
+    log.info('Servicio Word inicializado');
   }
 
   /**
@@ -23,10 +26,10 @@ class WordService {
       const filteredData = this.filterNonNullData(data);
 
       if (Object.keys(filteredData).length === 0) {
-        return { success: false, error: 'No hay datos válidos para procesar' };
+        return { success: false, error: 'No hay datos validos para procesar' };
       }
 
-      console.log(`[WORD-SERVICE] 📝 Generando documento Word: ${template}`);
+      log.info(`Generando documento Word: ${template}`);
 
       // Auto-detectar plantilla Word - no agregar extensión si no la tiene
       let templateName = template;
@@ -74,7 +77,7 @@ class WordService {
         dataHash
       };
     } catch (error) {
-      console.error('[WORD-SERVICE] ❌ Error en generateWord:', error);
+      log.error('Error en generateWord:', error.message);
       return { success: false, error: `Error al generar el archivo Word: ${error.message}` };
     }
   }
@@ -84,7 +87,7 @@ class WordService {
    */
   async createDocFromTemplate(data, templateName) {
     try {
-      console.log(`[WORD-SERVICE] 📥 Descargando plantilla: ${templateName}`);
+      log.info(`Descargando plantilla: ${templateName}`);
 
       // Descargar plantilla desde Supabase Storage
       const templateResult = await storageUtils.downloadTemplate(templateName);
@@ -97,13 +100,13 @@ class WordService {
       const arrayBuffer = await templateResult.data.arrayBuffer();
       const templateBuffer = Buffer.from(arrayBuffer);
 
-      console.log(`[WORD-SERVICE] ✅ Plantilla cargada: ${templateName}`);
+      log.info(`Plantilla cargada: ${templateName}`);
 
       // Detectar si es archivo .doc (Word 97-2003) y manejarlo diferente
       const isDocFormat = templateName.toLowerCase().endsWith('.doc') && !templateName.toLowerCase().endsWith('.docx');
 
       if (isDocFormat) {
-        console.log(`[WORD-SERVICE] 🔄 Detectado formato .doc, usando fallback con mammoth`);
+        log.info('Detectado formato .doc, usando fallback con mammoth');
         return await this.handleDocFormat(templateBuffer, data, templateName);
       }
 
@@ -111,7 +114,7 @@ class WordService {
       return await this.processDocxTemplate(templateBuffer, data, templateName);
 
     } catch (error) {
-      console.error('[WORD-SERVICE] ❌ Error creando documento Word:', error);
+      log.error('Error creando documento Word:', error.message);
       throw error;
     }
   }
@@ -128,23 +131,35 @@ class WordService {
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
-        // Retornar string vacío para cualquier valor no encontrado (evita "undefined")
         nullGetter: function(part) {
-          // Si el tag no tiene valor, retornar string vacío
           if (!part.module) {
             return '';
           }
-          // Para módulos especiales (loops, etc), también retornar vacío
           return '';
         }
       });
 
-      // Preparar datos para el template (aplanado) - pasar templateName
+      // Preparar datos para el template (aplanado)
       const templateData = this.prepareTemplateData(data, templateName);
 
-      console.log(`[WORD-SERVICE] 📊 Datos para template:`, Object.keys(templateData));
-      console.log(`[WORD-SERVICE] 🔍 Primeros 10 campos con valores:`,
-        Object.entries(templateData).slice(0, 10).map(([k,v]) => `${k}: "${v}"`));
+      // Crear tracker para logging
+      const tracker = createTemplateTracker(templateName, log);
+
+      // Contar campos con valor vs vacios
+      let camposConValor = 0;
+      let camposVacios = 0;
+      Object.entries(templateData).forEach(([key, value]) => {
+        const hasValue = value !== undefined && value !== null && String(value).trim() !== '';
+        if (hasValue) {
+          camposConValor++;
+          tracker.trackMapping('docx', key, value, true);
+        } else {
+          camposVacios++;
+          tracker.trackMapping('docx', key, null, false);
+        }
+      });
+
+      log.info(`Datos preparados: ${Object.keys(templateData).length} campos (${camposConValor} con valor, ${camposVacios} vacios)`);
 
       // Limpiar datos antes de setear en el template para evitar "undefined"
       const cleanedData = this.cleanUndefinedValues(templateData);
@@ -154,7 +169,11 @@ class WordService {
 
       // Renderizar el documento
       doc.render();
-      console.log(`[WORD-SERVICE] ✅ Documento renderizado exitosamente`);
+
+      // Imprimir reporte
+      tracker.printReport();
+
+      log.info('Documento Word renderizado exitosamente');
 
       // Obtener el buffer del documento generado
       const docBuffer = doc.getZip().generate({
@@ -164,7 +183,7 @@ class WordService {
 
       return docBuffer;
     } catch (error) {
-      console.error('[WORD-SERVICE] ❌ Error procesando plantilla .docx:', error);
+      log.error('Error procesando plantilla .docx:', error.message);
       throw error;
     }
   }
@@ -174,13 +193,13 @@ class WordService {
    */
   async handleDocFormat(templateBuffer, data, templateName) {
     try {
-      console.log(`[WORD-SERVICE] 🔄 Procesando archivo .doc con mammoth`);
+      log.info('Procesando archivo .doc con mammoth');
 
       // Extraer texto del archivo .doc
       const result = await mammoth.extractRawText({ buffer: templateBuffer });
       let templateText = result.value;
 
-      console.log(`[WORD-SERVICE] 📄 Texto extraído del .doc, longitud: ${templateText.length}`);
+      log.info(`Texto extraido del .doc, longitud: ${templateText.length}`);
 
       // Preparar datos para reemplazo
       const templateData = this.prepareTemplateData(data);
@@ -206,11 +225,11 @@ class WordService {
       // Crear documento Word simple con el texto procesado
       const docContent = this.createSimpleDocx(templateText);
 
-      console.log(`[WORD-SERVICE] ✅ Documento .doc procesado exitosamente`);
+      log.info('Documento .doc procesado exitosamente');
       return docContent;
 
     } catch (error) {
-      console.error('[WORD-SERVICE] ❌ Error procesando archivo .doc:', error);
+      log.error('Error procesando archivo .doc:', error.message);
       throw new Error(`Error procesando archivo .doc: ${error.message}`);
     }
   }
@@ -261,7 +280,7 @@ class WordService {
       return buffer;
 
     } catch (error) {
-      console.error('[WORD-SERVICE] ❌ Error creando documento simple:', error);
+      log.error('Error creando documento simple:', error.message);
       throw error;
     }
   }
@@ -289,18 +308,15 @@ class WordService {
     const isAval = template.toLowerCase().includes('aval') ||
                    template.toLowerCase().includes('ficha_de_identificacion_del_aval');
 
-    console.log(`[WORD-SERVICE] 🔍 Template detectado: ${template}`);
-    console.log(`[WORD-SERVICE] 📋 isObligadoSolidario: ${isObligadoSolidario}, isAval: ${isAval}`);
+    log.debug(`Template: ${template} | ObligadoSolidario: ${isObligadoSolidario} | Aval: ${isAval}`);
 
     // Si es obligado solidario, usar notación de punto
     if (isObligadoSolidario) {
-      console.log(`[WORD-SERVICE] 📋 Usando notación de punto para obligado solidario`);
       return this.prepareObligadoSolidarioData(data);
     }
 
     // Si es aval, usar notación de punto
     if (isAval) {
-      console.log(`[WORD-SERVICE] 📋 Usando notación de punto para aval`);
       return this.prepareAvalData(data);
     }
 
@@ -317,8 +333,6 @@ class WordService {
     templateData.fecha = templateData.fecha || new Date().toLocaleDateString();
     templateData.nombre_completo = `${templateData.nombre || ''} ${templateData.apellido_paterno || templateData.apellido || ''}`.trim();
 
-    console.log(`[WORD-SERVICE] 🔄 Template data preparado con ${Object.keys(templateData).length} campos`);
-
     return templateData;
   }
 
@@ -326,12 +340,7 @@ class WordService {
    * Preparar datos específicos para Obligado Solidario
    */
   prepareObligadoSolidarioData(data) {
-    console.log(`[WORD-SERVICE] 📝 Preparando datos para obligado solidario`);
-    console.log(`[WORD-SERVICE] 🔍 Datos recibidos (muestra):`, {
-      tieneNotacionPunto: !!data['obligado.primer_nombre'],
-      tieneEstructuraAnidada: !!data.obligado,
-      codigo: data.codigo || data.codigo_de_prospecto
-    });
+    log.debug('Preparando datos para obligado solidario');
 
     // Crear objeto con notación de punto que espera docxtemplater
     const templateData = {
@@ -342,8 +351,6 @@ class WordService {
 
     // Si los datos ya vienen con notación de punto, usarlos directamente
     if (data['obligado.primer_nombre'] !== undefined) {
-      console.log(`[WORD-SERVICE] ✅ Datos ya vienen con notación de punto`);
-
       // Copiar todos los campos con notación de punto
       Object.keys(data).forEach(key => {
         if (key.includes('.') || key === 'codigo' || key === 'fecha') {
@@ -351,13 +358,11 @@ class WordService {
         }
       });
 
-      console.log(`[WORD-SERVICE] 📊 Campos con notación de punto:`, Object.keys(templateData));
       return templateData;
     }
 
     // Si los datos vienen con estructura anidada, convertir a notación de punto
     if (data.obligado && typeof data.obligado === 'object') {
-      console.log(`[WORD-SERVICE] 🔄 Convirtiendo estructura anidada a notación de punto`);
 
       // Convertir obligado
       const obligado = data.obligado;
@@ -407,12 +412,10 @@ class WordService {
       templateData['protesta.es_accionista'] = protesta.es_accionista || '';
       templateData['protesta.tiene_relacion_con_accionista'] = protesta.tiene_relacion_con_accionista || '';
 
-      console.log(`[WORD-SERVICE] 📊 Campos convertidos a notación de punto:`, Object.keys(templateData));
       return templateData;
     }
 
     // Si los datos vienen planos, crear notación de punto directamente
-    console.log(`[WORD-SERVICE] 🔄 Creando notación de punto desde datos planos`);
 
     // Campos obligado con notación de punto
     templateData['obligado.primer_nombre'] = data.primer_nombre || '';
@@ -458,9 +461,6 @@ class WordService {
     templateData['protesta.es_accionista'] = data.es_accionista || '';
     templateData['protesta.tiene_relacion_con_accionista'] = data.tiene_relacion_con_accionista || '';
 
-    console.log(`[WORD-SERVICE] 🔄 Template data preparado para Obligado Solidario`);
-    console.log(`[WORD-SERVICE] 📊 Estructura de datos:`, JSON.stringify(templateData, null, 2));
-
     return templateData;
   }
 
@@ -468,12 +468,7 @@ class WordService {
    * Preparar datos específicos para Aval
    */
   prepareAvalData(data) {
-    console.log(`[WORD-SERVICE] 📝 Preparando datos para aval`);
-    console.log(`[WORD-SERVICE] 🔍 Datos recibidos (muestra):`, {
-      tieneNotacionPunto: !!data['aval.primer_nombre'],
-      tieneEstructuraAnidada: !!data.aval,
-      codigo: data.codigo || data.codigo_de_prospecto
-    });
+    log.debug('Preparando datos para aval');
 
     // Crear objeto con notación de punto que espera docxtemplater
     const templateData = {
@@ -484,8 +479,6 @@ class WordService {
 
     // Si los datos ya vienen con notación de punto, usarlos directamente
     if (data['aval.primer_nombre'] !== undefined) {
-      console.log(`[WORD-SERVICE] ✅ Datos ya vienen con notación de punto para aval`);
-
       // Copiar todos los campos con notación de punto
       Object.keys(data).forEach(key => {
         if (key.includes('.') || key === 'codigo' || key === 'fecha') {
@@ -493,13 +486,11 @@ class WordService {
         }
       });
 
-      console.log(`[WORD-SERVICE] 📊 Campos con notación de punto:`, Object.keys(templateData));
       return templateData;
     }
 
     // Si los datos vienen con estructura anidada, convertir a notación de punto
     if (data.aval && typeof data.aval === 'object') {
-      console.log(`[WORD-SERVICE] 🔄 Convirtiendo estructura anidada a notación de punto para aval`);
 
       // Convertir aval
       const aval = data.aval;
@@ -607,12 +598,10 @@ class WordService {
       templateData['microempresario.otro_ingreso_o_negocio'] = microempresario.otro_ingreso_o_negocio || '';
       templateData['microempresario.otro_ingreso_o_negocio.cual'] = microempresario.otro_ingreso_o_negocio?.cual || '';
 
-      console.log(`[WORD-SERVICE] 📊 Campos convertidos a notación de punto:`, Object.keys(templateData));
       return templateData;
     }
 
     // Si los datos vienen planos, crear notación de punto directamente
-    console.log(`[WORD-SERVICE] 🔄 Creando notación de punto desde datos planos para aval`);
 
     // Campos aval con notación de punto
     templateData['aval.primer_nombre'] = data.primer_nombre || '';
@@ -671,9 +660,6 @@ class WordService {
     templateData['protesta.es_accionista'] = data.es_accionista || '';
     templateData['protesta.tiene_relacion_con_accionista'] = data.tiene_relacion_con_accionista || '';
 
-    console.log(`[WORD-SERVICE] 🔄 Template data preparado para Aval`);
-    console.log(`[WORD-SERVICE] 📊 Estructura de datos:`, JSON.stringify(templateData, null, 2));
-
     return templateData;
   }
 
@@ -686,7 +672,7 @@ class WordService {
       const template = data.template || 'general';
       const { template: _, ...dataSinTemplate } = data;
 
-      console.log(`[WORD-SERVICE] 📨 Procesando webhook para template: ${template}`);
+      log.info(`Procesando webhook para template: ${template}`);
 
       const wordResult = await this.generateWord(dataSinTemplate, template);
 
@@ -699,7 +685,7 @@ class WordService {
       if (data.saveToStorage === true) {
         const uploadResult = await this.uploadToStorage(wordResult, dataSinTemplate);
         if (!uploadResult.success) {
-          console.error('[WORD-SERVICE] ❌ Error subiendo a storage:', uploadResult.error);
+          log.error('Error subiendo a storage:', uploadResult.error);
         } else {
           storageUrl = uploadResult.url;
         }
@@ -714,7 +700,7 @@ class WordService {
             storageUrl: storageUrl
           });
         } catch (error) {
-          console.error('[WORD-SERVICE] ⚠️ Error enviando a N8N (continuando):', error.message);
+          log.warn('Error enviando a N8N (continuando):', error.message);
         }
       }
 
@@ -728,7 +714,7 @@ class WordService {
         dataHash: wordResult.dataHash
       };
     } catch (error) {
-      console.error('[WORD-SERVICE] ❌ Error procesando webhook:', error);
+      log.error('Error procesando webhook:', error.message);
       return { success: false, error: 'Error al procesar webhook' };
     }
   }
@@ -767,7 +753,7 @@ class WordService {
       });
 
       if (!metadataResult.success) {
-        console.warn('[WORD-SERVICE] ⚠️ Error guardando metadata:', metadataResult.error);
+        log.warn('Error guardando metadata:', metadataResult.error);
       }
 
       return {
@@ -777,7 +763,7 @@ class WordService {
         metadata: metadataResult.data
       };
     } catch (error) {
-      console.error('[WORD-SERVICE] ❌ Error en uploadToStorage:', error);
+      log.error('Error en uploadToStorage:', error.message);
       return { success: false, error: error.message };
     }
   }
@@ -793,7 +779,7 @@ class WordService {
         throw new Error('N8N_WEBHOOK_URL no configurada');
       }
 
-      console.log(`[WORD-SERVICE] 📤 Enviando a N8N: ${fileName}`);
+      log.info(`Enviando a N8N: ${fileName}`);
 
       const payload = {
         fileName: fileName,
@@ -815,9 +801,9 @@ class WordService {
         }
       });
 
-      console.log(`[WORD-SERVICE] ✅ Enviado exitosamente a N8N`);
+      log.info('Enviado exitosamente a N8N');
     } catch (error) {
-      console.error(`[WORD-SERVICE] ❌ Error enviando a N8N:`, error.message);
+      log.error('Error enviando a N8N:', error.message);
       throw error;
     }
   }

@@ -4,6 +4,9 @@
 // =============================================
 
 const { storageUtils } = require('../config/supabase');
+const { createLogger } = require('./logger');
+
+const log = createLogger('MAPPING');
 
 class MappingService {
   constructor() {
@@ -12,7 +15,7 @@ class MappingService {
     this.cellMaps = new Map(); // Mapa de formato -> cellMap
     this.loaded = new Set(); // Conjunto de formatos cargados
 
-    console.log('[MAPPING-SERVICE] ✅ Servicio inicializado');
+    log.info('Servicio de mapeo inicializado');
   }
 
   /**
@@ -58,7 +61,7 @@ class MappingService {
           break;
       }
 
-      console.log(`[MAPPING-SERVICE] 📥 Cargando mapping: ${csvFileName} para formato: ${formato}`);
+      log.info(`Cargando mapping: ${csvFileName} para formato: ${formato}`);
 
       // Descargar CSV desde Supabase Storage
       const csvResult = await storageUtils.downloadTemplate(csvFileName);
@@ -91,10 +94,10 @@ class MappingService {
       });
 
       this.loaded.add(formato);
-      console.log(`[MAPPING-SERVICE] ✅ Mappings cargados: ${mappings.length} para formato ${formato}`);
+      log.info(`Mappings cargados: ${mappings.length} para formato ${formato}`);
 
     } catch (error) {
-      console.error(`[MAPPING-SERVICE] ❌ Error cargando mappings para formato ${formato}:`, error.message);
+      log.error(`Error cargando mappings para formato ${formato}:`, error.message);
       throw error;
     }
   }
@@ -433,7 +436,7 @@ class MappingService {
         return current[key] !== undefined ? current[key] : null;
       }, obj);
     } catch (error) {
-      console.error(`[MAPPING-SERVICE] ❌ Error extracting path "${path}":`, error.message);
+      log.debug(`Error extrayendo path "${path}": ${error.message}`);
       return null;
     }
   }

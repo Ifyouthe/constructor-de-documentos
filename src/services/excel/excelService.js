@@ -8,10 +8,13 @@ const axios = require('axios');
 const crypto = require('crypto');
 const { storageUtils, documentUtils } = require('../../config/supabase');
 const mappingService = require('../../utils/mappingService');
+const { createLogger, createTemplateTracker } = require('../../utils/logger');
+
+const log = createLogger('EXCEL');
 
 class ExcelService {
   constructor() {
-    console.log('[EXCEL-SERVICE] ✅ Servicio inicializado');
+    log.info('Servicio Excel inicializado');
   }
 
   /**
@@ -28,10 +31,10 @@ class ExcelService {
       const filteredData = this.filterNonNullData(dataToProcess);
 
       if (Object.keys(filteredData).length === 0) {
-        return { success: false, error: 'No hay datos válidos para procesar' };
+        return { success: false, error: 'No hay datos validos para procesar' };
       }
 
-      console.log(`[EXCEL-SERVICE] 🔄 Generando documento formato: ${formato}`);
+      log.info(`Generando documento formato: ${formato}`);
 
       const workbook = await this.createWorkbookFromTemplate(filteredData, formato);
       const buffer = await workbook.xlsx.writeBuffer();
@@ -52,7 +55,7 @@ class ExcelService {
         dataHash
       };
     } catch (error) {
-      console.error('[EXCEL-SERVICE] ❌ Error en generateExcel:', error);
+      log.error('Error en generateExcel:', error.message);
       return { success: false, error: `Error al generar el archivo Excel: ${error.message}` };
     }
   }
@@ -71,7 +74,7 @@ class ExcelService {
         dataSinFormato.template = data.template;
       }
 
-      console.log(`[EXCEL-SERVICE] 📨 Procesando webhook para formato: ${formato}, template: ${data.template || 'auto'}`);
+      log.info(`Procesando webhook para formato: ${formato}`);
 
       const excelResult = await this.generateExcel(dataSinFormato, formato);
 
@@ -84,7 +87,7 @@ class ExcelService {
       if (data.saveToStorage === true) {
         const uploadResult = await this.uploadToStorage(excelResult, dataSinFormato);
         if (!uploadResult.success) {
-          console.error('[EXCEL-SERVICE] ❌ Error subiendo a storage:', uploadResult.error);
+          log.error('Error subiendo a storage:', uploadResult.error);
         } else {
           storageUrl = uploadResult.url;
         }
@@ -99,7 +102,7 @@ class ExcelService {
             storageUrl: storageUrl
           });
         } catch (error) {
-          console.error('[EXCEL-SERVICE] ⚠️ Error enviando a N8N (continuando):', error.message);
+          log.warn('Error enviando a N8N (continuando):', error.message);
         }
       }
 
@@ -113,7 +116,7 @@ class ExcelService {
         dataHash: excelResult.dataHash
       };
     } catch (error) {
-      console.error('[EXCEL-SERVICE] ❌ Error procesando webhook:', error);
+      log.error('Error procesando webhook:', error.message);
       return { success: false, error: 'Error al procesar webhook' };
     }
   }
@@ -152,7 +155,7 @@ class ExcelService {
       });
 
       if (!metadataResult.success) {
-        console.warn('[EXCEL-SERVICE] ⚠️ Error guardando metadata:', metadataResult.error);
+        log.warn('Error guardando metadata:', metadataResult.error);
       }
 
       return {
@@ -162,7 +165,7 @@ class ExcelService {
         metadata: metadataResult.data
       };
     } catch (error) {
-      console.error('[EXCEL-SERVICE] ❌ Error en uploadToStorage:', error);
+      log.error('Error en uploadToStorage:', error.message);
       return { success: false, error: error.message };
     }
   }
@@ -262,9 +265,7 @@ class ExcelService {
           sheetName = 'Ficha de identificación';
           break;
       }
-      console.log(`[EXCEL-SERVICE] 📋 Usando formato ${formato}: template=${templateName}, hoja=${sheetName}`);
-
-      console.log(`[EXCEL-SERVICE] 📥 Descargando plantilla: ${templateName}`);
+      log.info(`Usando formato ${formato}: template=${templateName}, hoja=${sheetName}`);
 
       // Descargar plantilla desde Supabase Storage
       const templateResult = await storageUtils.downloadTemplate(templateName);
@@ -288,7 +289,7 @@ class ExcelService {
 
       // Para obligado solidario, si no encuentra la hoja específica, usar la principal
       if (!worksheet && formato.includes('obligado')) {
-        console.log(`[EXCEL-SERVICE] ⚠️ Hoja "${sheetName}" no encontrada, usando hoja principal`);
+        log.warn(`Hoja "${sheetName}" no encontrada, usando hoja principal`);
         worksheet = workbook.getWorksheet('Ficha de identificación') ||
                     workbook.getWorksheet('Hoja1') ||
                     workbook.worksheets[0];
@@ -296,46 +297,49 @@ class ExcelService {
 
       // Para seguimiento, intentar variaciones del nombre de hoja
       if (!worksheet && formato === 'seguimiento') {
-        console.log(`[EXCEL-SERVICE] ⚠️ Hoja "${sheetName}" no encontrada para seguimiento, buscando alternativas`);
+        log.warn(`Hoja "${sheetName}" no encontrada para seguimiento, buscando alternativas`);
         worksheet = workbook.getWorksheet('Hoja1') ||
                     workbook.getWorksheet('hoja1') ||
                     workbook.getWorksheet('Sheet1') ||
                     workbook.worksheets[0];
         if (worksheet) {
-          console.log(`[EXCEL-SERVICE] ✅ Usando hoja alternativa: "${worksheet.name}"`);
+          log.info(`Usando hoja alternativa: "${worksheet.name}"`);
         }
       }
 
       if (!worksheet) {
-        // Logging para debug - mostrar hojas disponibles
         const availableSheets = workbook.worksheets.map(ws => `"${ws.name}"`);
-        console.log(`[EXCEL-SERVICE] ❌ Hoja "${sheetName}" no encontrada`);
-        console.log(`[EXCEL-SERVICE] 📋 Hojas disponibles:`, availableSheets);
+        log.error(`Hoja "${sheetName}" no encontrada. Disponibles: ${availableSheets.join(', ')}`);
         throw new Error(`Hoja "${sheetName}" no encontrada en la plantilla. Hojas disponibles: ${availableSheets.join(', ')}`);
       }
 
-      console.log(`[EXCEL-SERVICE] ✅ Plantilla cargada: ${templateName}`);
+      log.info(`Plantilla cargada: ${templateName}`);
 
       // Cargar mappings y aplicar datos
       await mappingService.loadMappings(formato);
       const dataMapping = mappingService.createDataMapping(data, formato);
       const mappings = mappingService.getAllMappings(formato);
 
-      console.log(`[EXCEL-SERVICE] 📊 DataMapping creado con ${dataMapping.size} entradas`);
-      console.log(`[EXCEL-SERVICE] 📍 Mappings cargados: ${mappings.length}`);
+      log.info(`Mappings cargados: ${mappings.length} | DataMapping: ${dataMapping.size} entradas`);
+
+      // Crear tracker para logging detallado
+      const tracker = createTemplateTracker(formato, log);
 
       // Limpiar rellenos rojos de la plantilla
       this.clearAllRedFillsFromTemplate(worksheet);
 
-      // Llenar celdas con datos
-      this.fillCellsFromMappings(worksheet, dataMapping, mappings);
+      // Llenar celdas con datos (con tracking)
+      this.fillCellsFromMappings(worksheet, dataMapping, mappings, tracker);
+
+      // Imprimir reporte de mapeo
+      tracker.printReport();
 
       // Aplicar reglas específicas por formato
       this.applyFormatSpecificRules(worksheet, formato, data);
 
       return workbook;
     } catch (error) {
-      console.error('[EXCEL-SERVICE] ❌ Error creando workbook:', error);
+      log.error('Error creando workbook:', error.message);
       throw error;
     }
   }
@@ -360,16 +364,16 @@ class ExcelService {
       case 'expediente_sumate':
         try {
           const password = this.generateDynamicPassword();
-          console.log(`[EXCEL-SERVICE] 🔒 Aplicando protección con contraseña al expediente Sumate`);
+          log.info('Aplicando proteccion con contrasena al expediente');
 
           worksheet.protect(password, {
             selectLockedCells: true,
             selectUnlockedCells: true,
           });
 
-          console.log(`[EXCEL-SERVICE] ✅ Protección aplicada exitosamente`);
+          log.info('Proteccion aplicada exitosamente');
         } catch (protectionError) {
-          console.error(`[EXCEL-SERVICE] ❌ Error aplicando protección:`, protectionError.message);
+          log.error('Error aplicando proteccion:', protectionError.message);
         }
         break;
     }
@@ -386,7 +390,7 @@ class ExcelService {
         throw new Error('N8N_WEBHOOK_URL no configurada');
       }
 
-      console.log(`[EXCEL-SERVICE] 📤 Enviando a N8N: ${fileName}`);
+      log.info(`Enviando a N8N: ${fileName}`);
 
       const payload = {
         fileName: fileName,
@@ -407,9 +411,9 @@ class ExcelService {
         }
       });
 
-      console.log(`[EXCEL-SERVICE] ✅ Enviado exitosamente a N8N`);
+      log.info('Enviado exitosamente a N8N');
     } catch (error) {
-      console.error(`[EXCEL-SERVICE] ❌ Error enviando a N8N:`, error.message);
+      log.error('Error enviando a N8N:', error.message);
       throw error;
     }
   }
@@ -520,50 +524,51 @@ class ExcelService {
         }
       });
     });
-    console.log(`[EXCEL-SERVICE] 🧹 Limpiados ${cleared} rellenos rojos (${skippedFormulas} fórmulas preservadas)`);
+    log.debug(`Limpiados ${cleared} rellenos rojos (${skippedFormulas} formulas preservadas)`);
   }
 
-  fillCellsFromMappings(worksheet, dataMapping, mappings) {
+  fillCellsFromMappings(worksheet, dataMapping, mappings, tracker = null) {
     let setCount = 0, nulled = 0, skipped = 0;
 
-    console.log('[EXCEL-SERVICE] 🔍 Aplicando mappings...');
-    mappings.forEach(({ cell: addr, raw_text }) => {
+    mappings.forEach(({ cell: addr, raw_text, placeholder }) => {
       const cell = this.getMasterCell(worksheet, addr);
       if (!cell) {
-        console.log(`[EXCEL-SERVICE]   ⚠️  Celda ${addr} no encontrada`);
         skipped++;
         return;
       }
 
       let value = dataMapping.get(raw_text);
-      const originalValue = cell.value;
 
       if (value !== undefined && String(value).trim() !== '') {
         // Convertir porcentajes: dividir por 100 si es campo de porcentaje
-        // Excel tiene formato % que multiplica por 100, entonces 25 -> 0.25 -> Excel muestra 25%
         const isPorcentaje = raw_text.includes('porcentaje_de_ganancia') || raw_text.includes('ingreso_de_ganancia') || raw_text.includes('participacion');
         if (isPorcentaje) {
           const numValue = parseFloat(value);
           if (!isNaN(numValue)) {
             value = numValue / 100;
-            console.log(`[EXCEL-SERVICE]   🔢 Convirtiendo porcentaje: ${numValue} → ${value}`);
           }
         }
 
         cell.value = value;
         this.clearFill(cell);
-        console.log(`[EXCEL-SERVICE]   ✅ ${addr}: "${originalValue}" → "${value}" (${raw_text})`);
         setCount++;
+
+        // Registrar en tracker
+        if (tracker) {
+          tracker.trackMapping(addr, placeholder || raw_text, value, true);
+        }
       } else {
-        // IMPORTANTE: Usar cadena vacía en lugar de null para evitar corrupción
-        // null puede causar inconsistencias en celdas con formato especial o merged cells
-        console.log(`[EXCEL-SERVICE]   ⚠️  ${addr}: sin valor para ${raw_text}`);
         cell.value = '';
         nulled++;
+
+        // Registrar en tracker como vacio
+        if (tracker) {
+          tracker.trackMapping(addr, placeholder || raw_text, null, false);
+        }
       }
     });
 
-    console.log(`[EXCEL-SERVICE] ✍️  Celdas seteadas: ${setCount}, vaciadas: ${nulled}, omitidas: ${skipped}`);
+    log.info(`Celdas procesadas: ${setCount} colocadas, ${nulled} vacias, ${skipped} omitidas`);
   }
 
   generateDynamicPassword() {

@@ -4,6 +4,14 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
+// Logger simple para supabase (evitar dependencia circular)
+const log = {
+  info: (msg, data) => console.log(`[INFO] [SUPABASE] ${msg}`, data !== undefined ? data : ''),
+  error: (msg, data) => console.error(`[ERROR] [SUPABASE] ${msg}`, data !== undefined ? data : ''),
+  warn: (msg, data) => console.warn(`[WARN] [SUPABASE] ${msg}`, data !== undefined ? data : ''),
+  debug: (msg, data) => process.env.LOG_LEVEL === 'DEBUG' && console.log(`[DEBUG] [SUPABASE] ${msg}`, data !== undefined ? data : '')
+};
+
 // Configuración desde variables de entorno
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -39,37 +47,25 @@ const supabaseAnon = SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANO
   }
 }) : null;
 
-// Log de configuración
-console.log('🔌 Constructor de Documentos Sumate conectado a Supabase');
-console.log(`📊 Supabase URL: ${SUPABASE_URL}`);
-console.log(`🔑 Usando ${SUPABASE_ANON_KEY ? 'ANON KEY' : 'SERVICE KEY'} para operaciones backend`);
+log.info(`Conectado a Supabase | Key: ${SUPABASE_ANON_KEY ? 'ANON' : 'SERVICE'}`);
 
 /**
  * Verificar conexión a Supabase
  */
 async function checkSupabaseConnection() {
   try {
-    console.log('[SUPABASE] 🔍 Probando conexión con query simple...');
-
-    // Probar con una query más simple primero
     const { data, error } = await supabaseService
       .from('documentos_generados_sumate')
       .select('*')
       .limit(1);
 
-    console.log('[SUPABASE] 🔍 Respuesta de query:', { data, error });
-
     if (error && error.code !== 'PGRST116') {
       throw error;
     }
 
-    console.log('[SUPABASE] ✅ Conexión verificada exitosamente');
     return { success: true };
   } catch (error) {
-    console.error('[SUPABASE] ❌ Error verificando conexión:', error.message);
-    console.error('[SUPABASE] 🔍 Detalles del error:', error);
-    console.error('[SUPABASE] 🔍 URL:', SUPABASE_URL);
-    console.error('[SUPABASE] 🔍 Key type:', SUPABASE_ANON_KEY ? 'ANON' : 'SERVICE');
+    log.error('Error verificando conexion:', error.message);
     return { success: false, error: error.message };
   }
 }
@@ -91,7 +87,7 @@ const storageUtils = {
 
       return { success: true, data };
     } catch (error) {
-      console.error('[STORAGE] Error descargando plantilla:', error.message || error);
+      log.error('Error descargando plantilla:', error.message || error);
       return { success: false, error: error.message || error.toString() };
     }
   },
@@ -117,7 +113,7 @@ const storageUtils = {
 
       return { success: true, data };
     } catch (error) {
-      console.error('[STORAGE] Error subiendo documento:', error.message);
+      log.error('Error subiendo documento:', error.message);
       return { success: false, error: error.message };
     }
   },
@@ -135,7 +131,7 @@ const storageUtils = {
 
       return { success: true, url: data.publicUrl };
     } catch (error) {
-      console.error('[STORAGE] Error obteniendo URL pública:', error.message);
+      log.error('Error obteniendo URL publica:', error.message);
       return { success: false, error: error.message };
     }
   },
@@ -146,26 +142,18 @@ const storageUtils = {
   async listTemplates() {
     try {
       const bucketName = process.env.SUPABASE_BUCKET_TEMPLATES || 'plantillas-documentos';
-      console.log(`[STORAGE] 📂 Listando plantillas del bucket: ${bucketName}`);
-      console.log(`[STORAGE] 🔑 Variables de entorno: TEMPLATES=${process.env.SUPABASE_BUCKET_TEMPLATES}, GENERATED=${process.env.SUPABASE_BUCKET_GENERATED}`);
 
       const { data, error } = await supabaseService.storage
         .from(bucketName)
         .list();
 
       if (error) {
-        console.error('[STORAGE] ❌ Error listando plantillas:', error);
         throw error;
-      }
-
-      console.log(`[STORAGE] 📋 Encontrados ${data.length} archivos en bucket ${bucketName}`);
-      if (data.length > 0) {
-        console.log('[STORAGE] 📁 Archivos encontrados:', data.map(f => f.name));
       }
 
       return { success: true, templates: data };
     } catch (error) {
-      console.error('[STORAGE] Error listando plantillas:', error.message);
+      log.error('Error listando plantillas:', error.message);
       return { success: false, error: error.message };
     }
   }
@@ -199,7 +187,7 @@ const documentUtils = {
 
       return { success: true, data };
     } catch (error) {
-      console.error('[DATABASE] Error guardando metadata:', error.message);
+      log.error('Error guardando metadata:', error.message);
       return { success: false, error: error.message };
     }
   },
@@ -221,7 +209,7 @@ const documentUtils = {
 
       return { success: true, document: data[0] || null };
     } catch (error) {
-      console.error('[DATABASE] Error buscando documento:', error.message);
+      log.error('Error buscando documento:', error.message);
       return { success: false, error: error.message };
     }
   },
@@ -245,7 +233,7 @@ const documentUtils = {
 
       return { success: true, data };
     } catch (error) {
-      console.error('[DATABASE] Error actualizando descargas:', error.message);
+      log.error('Error actualizando descargas:', error.message);
       return { success: false, error: error.message };
     }
   }

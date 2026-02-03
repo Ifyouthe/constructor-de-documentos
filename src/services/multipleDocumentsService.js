@@ -6,6 +6,9 @@
 const excelService = require('./excel/excelService');
 const wordService = require('./word/wordService');
 const mappingService = require('../utils/mappingService');
+const { createLogger } = require('../utils/logger');
+
+const log = createLogger('MULTI-DOCS');
 
 class MultipleDocumentsService {
   constructor() {
@@ -24,7 +27,7 @@ class MultipleDocumentsService {
       seguimiento_credito: this.mapSeguimientoCredito.bind(this)
     };
 
-    console.log('[MULTIPLE-DOCS-SERVICE] ✅ Servicio inicializado');
+    log.info('Servicio de documentos multiples inicializado');
   }
 
   /**
@@ -32,7 +35,7 @@ class MultipleDocumentsService {
    */
   async generateMultipleDocuments(fichas_a_generar, datos_prospecto) {
     try {
-      console.log('[MULTIPLE-DOCS] 📨 Generando múltiples fichas:', fichas_a_generar);
+      log.info(`Generando ${fichas_a_generar.length} fichas: ${fichas_a_generar.join(', ')}`);
 
       const resultados = {
         success: true,
@@ -49,21 +52,19 @@ class MultipleDocumentsService {
       // Procesar cada ficha
       for (const tipoFicha of fichas_a_generar) {
         try {
-          console.log(`[MULTIPLE-DOCS] 🔄 Procesando ficha: ${tipoFicha}`);
-
           const resultado = await this.generateSingleDocument(tipoFicha, datos_prospecto);
 
           if (resultado.success) {
             resultados.documentos_generados.push(resultado);
             resultados.metadata.total_generados++;
-            console.log(`[MULTIPLE-DOCS] ✅ Ficha generada: ${tipoFicha}`);
+            log.info(`Ficha generada: ${tipoFicha}`);
           } else {
             resultados.errores.push({
               tipo_ficha: tipoFicha,
               error: resultado.error
             });
             resultados.metadata.total_errores++;
-            console.error(`[MULTIPLE-DOCS] ❌ Error en ficha ${tipoFicha}:`, resultado.error);
+            log.error(`Error en ficha ${tipoFicha}: ${resultado.error}`);
           }
         } catch (error) {
           resultados.errores.push({
@@ -71,7 +72,7 @@ class MultipleDocumentsService {
             error: error.message
           });
           resultados.metadata.total_errores++;
-          console.error(`[MULTIPLE-DOCS] ❌ Error crítico en ficha ${tipoFicha}:`, error.message);
+          log.error(`Error critico en ficha ${tipoFicha}: ${error.message}`);
         }
       }
 
@@ -80,13 +81,14 @@ class MultipleDocumentsService {
         resultados.success = false;
       }
 
+      log.info(`Resultado: ${resultados.metadata.total_generados}/${resultados.metadata.total_solicitados} generados`);
       return resultados;
 
     } catch (error) {
-      console.error('[MULTIPLE-DOCS] ❌ Error crítico:', error.message);
+      log.error('Error critico en generacion multiple:', error.message);
       return {
         success: false,
-        error: 'Error crítico en generación múltiple',
+        error: 'Error critico en generacion multiple',
         detalles: error.message,
         metadata: {
           timestamp: new Date().toISOString()
@@ -1170,14 +1172,6 @@ class MultipleDocumentsService {
    */
   buildCustomFileName(datos, tipoFicha, originalFileName) {
     try {
-      console.log('[MULTIPLE-DOCS] 🔍 Datos para nombre personalizado:', {
-        primer_apellido: datos.primer_apellido,
-        segundo_apellido: datos.segundo_apellido,
-        primer_nombre: datos.primer_nombre,
-        codigo_de_prospecto: datos.codigo_de_prospecto,
-        id_expediente: datos.id_expediente,
-        tipoFicha: tipoFicha
-      });
 
       // Extraer campos basándose en los mapeos
       const apellidoPaterno = this.cleanForFileName(
@@ -1190,10 +1184,6 @@ class MultipleDocumentsService {
         datos.primer_nombre || datos.cliente_primer_nombre || ''
       );
       const codigoProspecto = this.cleanForFileName(datos.codigo_de_prospecto || datos.id_expediente || '');
-
-      console.log('[MULTIPLE-DOCS] 🔍 Campos limpios:', {
-        apellidoPaterno, apellidoMaterno, primerNombre, codigoProspecto
-      });
 
       // Determinar extensión basándose en el tipo de ficha
       let extension;
@@ -1219,13 +1209,10 @@ class MultipleDocumentsService {
       const partes = [apellidoPaterno, apellidoMaterno, primerNombre, codigoProspecto, tipoFicha].filter(Boolean);
       const nombreCustom = partes.join('_') + '.' + extension;
 
-      console.log('[MULTIPLE-DOCS] 📄 Nombre personalizado generado:', nombreCustom);
-      console.log('[MULTIPLE-DOCS] 📄 Nombre original era:', originalFileName);
-
       return nombreCustom || originalFileName;
 
     } catch (error) {
-      console.error('[MULTIPLE-DOCS] ❌ Error creando nombre personalizado:', error.message);
+      log.warn('Error creando nombre personalizado:', error.message);
       return originalFileName;
     }
   }
