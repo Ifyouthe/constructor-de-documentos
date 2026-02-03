@@ -489,7 +489,8 @@ class ExcelService {
     // Debug para celdas problemáticas (K7, K8)
     const isDebugCell = cellAddr === 'K7' || cellAddr === 'K8';
     if (isDebugCell) {
-      log.info(`DEBUG CELL ${cellAddr}: isMerged=${cell.isMerged}, master=${JSON.stringify(cell.master)}, value="${cell.value}"`);
+      const masterInfo = cell.master ? `row=${cell.master.row}, col=${cell.master.col}, address=${cell.master.address}` : 'null';
+      log.info(`DEBUG CELL ${cellAddr}: isMerged=${cell.isMerged}, master=(${masterInfo}), value="${cell.value}"`);
     }
 
     // Si la celda está merged, obtener la celda master
