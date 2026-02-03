@@ -485,13 +485,34 @@ class ExcelService {
 
     const cell = worksheet.getCell(cellAddr);
     if (!cell) return cell;
+
+    // Debug para celdas problemáticas (K7, K8)
+    const isDebugCell = cellAddr === 'K7' || cellAddr === 'K8';
+    if (isDebugCell) {
+      log.info(`DEBUG CELL ${cellAddr}: isMerged=${cell.isMerged}, master=${JSON.stringify(cell.master)}, value="${cell.value}"`);
+    }
+
+    // Si la celda está merged, obtener la celda master
     if (cell.isMerged && cell.master) {
-      const { row, col } = cell.master;
-      return worksheet.getCell(row, col);
+      // cell.master puede ser un objeto con row/col o con address
+      if (cell.master.row && cell.master.col) {
+        const masterCell = worksheet.getCell(cell.master.row, cell.master.col);
+        if (isDebugCell) log.info(`DEBUG CELL ${cellAddr}: Redirigiendo a master (${cell.master.row}, ${cell.master.col})`);
+        return masterCell;
+      }
+      if (cell.master.address) {
+        const masterCell = worksheet.getCell(cell.master.address);
+        if (isDebugCell) log.info(`DEBUG CELL ${cellAddr}: Redirigiendo a master address ${cell.master.address}`);
+        return masterCell;
+      }
+      // Fallback: top/left
+      if (cell.master.top && cell.master.left) {
+        const masterCell = worksheet.getCell(cell.master.top, cell.master.left);
+        if (isDebugCell) log.info(`DEBUG CELL ${cellAddr}: Redirigiendo a master top/left (${cell.master.top}, ${cell.master.left})`);
+        return masterCell;
+      }
     }
-    if (cell.isMerged && cell.master && cell.master.top && cell.master.left) {
-      return worksheet.getCell(cell.master.top, cell.master.left);
-    }
+
     return cell;
   }
 
