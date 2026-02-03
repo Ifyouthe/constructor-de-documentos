@@ -178,6 +178,14 @@ class MappingService {
       }
     }
 
+    // CRÍTICO: Agregar claves literales con puntos al flatIndex (para "buro.no_hit.2", etc.)
+    // Estas claves vienen del request tal cual y deben mapearse directamente
+    for (const [key, value] of Object.entries(inputData)) {
+      if (key.includes('.') && flatIndex[key] === undefined) {
+        flatIndex[key] = value;
+      }
+    }
+
     // Alias específicos para Sumate
     const aliasPairs = [
       // Cliente
@@ -405,7 +413,7 @@ class MappingService {
    */
   extractValueFromPath(obj, path) {
     try {
-      // Usar índice plano si está disponible
+      // PRIMERO: Buscar clave literal exacta en flatIndex (para claves como "buro.no_hit.2")
       if (obj && obj.__flatIndex && Object.prototype.hasOwnProperty.call(obj.__flatIndex, path)) {
         return obj.__flatIndex[path];
       }
@@ -426,6 +434,11 @@ class MappingService {
             return obj.__flatIndex[key];
           }
         }
+      }
+
+      // Fallback: buscar en datos raíz con clave literal (para claves como "buro.no_hit.2" que vienen planas)
+      if (obj && Object.prototype.hasOwnProperty.call(obj, path)) {
+        return obj[path];
       }
 
       // Navegación anidada tradicional
