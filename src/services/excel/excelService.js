@@ -350,15 +350,8 @@ class ExcelService {
   applyFormatSpecificRules(worksheet, formato, data) {
     switch (formato) {
       case 'sin_HC':
-        // Vaciar únicamente el rango K7/K8 (merged)
-        ['K7', 'K8'].forEach((addr) => {
-          try {
-            const cell = this.getMasterCell(worksheet, addr);
-            if (cell) {
-              cell.value = null;
-            }
-          } catch (_) {}
-        });
+        // K7/K8 ahora se maneja via mapfield (buro.no_hit.2)
+        // No se requiere acción especial
         break;
 
       case 'expediente_sumate':
