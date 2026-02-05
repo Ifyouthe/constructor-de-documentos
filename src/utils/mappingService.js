@@ -152,17 +152,6 @@ class MappingService {
       const rawValue = this.extractValueFromPath(transformedData, path);
       const excelValue = this.convertValueForExcel(rawValue);
 
-      // Debug para claves problemáticas con .2
-      if (path && path.includes('.2')) {
-        log.info(`DEBUG MAPPING: path="${path}" rawValue="${rawValue}" excelValue="${excelValue}"`);
-      }
-
-      // Debug para obligado_solidario
-      if (path && path.startsWith('obligado_solidario.')) {
-        const flatVal = transformedData.__flatIndex ? transformedData.__flatIndex[path] : 'NO_FLAT_INDEX';
-        log.info(`DEBUG OBLIGADO: path="${path}" rawValue="${rawValue}" excelValue="${excelValue}" flatIndex="${flatVal}"`);
-      }
-
       dataMapping.set(placeholderWithBraces, excelValue);
     });
 
@@ -375,14 +364,6 @@ class MappingService {
       }
     } catch (_) {
       // ignorar errores de parsing de edad
-    }
-
-    // Debug: mostrar claves de obligado_solidario en el flatIndex
-    const obligadoKeys = Object.keys(flatIndex).filter(k => k.includes('obligado'));
-    if (obligadoKeys.length > 0) {
-      log.info(`DEBUG OBLIGADO KEYS en flatIndex: ${obligadoKeys.map(k => `${k}="${flatIndex[k]}"`).join(', ')}`);
-    } else {
-      log.info(`DEBUG OBLIGADO KEYS: ninguna clave con "obligado" encontrada en flatIndex`);
     }
 
     // Adjuntar índice plano
