@@ -164,11 +164,8 @@ class WordService {
       // Limpiar datos antes de setear en el template para evitar "undefined"
       const cleanedData = this.cleanUndefinedValues(templateData);
 
-      // Setear los datos en el template
-      doc.setData(cleanedData);
-
-      // Renderizar el documento
-      doc.render();
+      // Renderizar el documento con los datos
+      doc.render(cleanedData);
 
       // Imprimir reporte
       tracker.printReport();
@@ -691,18 +688,7 @@ class WordService {
         }
       }
 
-      // Solo enviar a N8N si está configurado y se solicita
-      if (data.sendToN8n !== false && process.env.N8N_WEBHOOK_URL) {
-        try {
-          await this.sendToN8n(wordResult.fileData, wordResult.fileName, {
-            template: wordResult.template,
-            dataHash: wordResult.dataHash,
-            storageUrl: storageUrl
-          });
-        } catch (error) {
-          log.warn('Error enviando a N8N (continuando):', error.message);
-        }
-      }
+      // N8N ya no se usa - el envío se maneja desde el servicio externo que llama a este webhook
 
       return {
         success: true,
@@ -768,45 +754,6 @@ class WordService {
     }
   }
 
-  /**
-   * Enviar archivo a N8N
-   */
-  async sendToN8n(base64Data, fileName, metadata = {}) {
-    try {
-      const webhookUrl = process.env.N8N_WEBHOOK_URL;
-
-      if (!webhookUrl) {
-        throw new Error('N8N_WEBHOOK_URL no configurada');
-      }
-
-      log.info(`Enviando a N8N: ${fileName}`);
-
-      const payload = {
-        fileName: fileName,
-        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        base64: base64Data,
-        metadata: {
-          generatedAt: new Date().toISOString(),
-          source: 'constructor-documentos-sumate',
-          type: 'word',
-          ...metadata
-        }
-      };
-
-      const response = await require('axios').post(webhookUrl, payload, {
-        timeout: 30000,
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Constructor-Documentos-Sumate/1.0'
-        }
-      });
-
-      log.info('Enviado exitosamente a N8N');
-    } catch (error) {
-      log.error('Error enviando a N8N:', error.message);
-      throw error;
-    }
-  }
 
   /**
    * Limpiar valores undefined/null/vacíos para evitar que aparezca "undefined" en los documentos
@@ -861,9 +808,9 @@ class WordService {
     const formattedDate = this.formatDateForFilenameDDMMYYYY(today);
 
     const baseName = templateName.replace(/\.(doc|docx)$/i, '');
-    const nombre = data.nombre || 'SIN_NOMBRE';
-    const apellido = data.apellido_paterno || data.apellido || '';
-    const codigo = data.codigo || data.id || 'SIN_CODIGO';
+    const nombre = data.nombre || data.nombre_del_cliente || data.primer_nombre || data['cliente.primer_nombre'] || 'SIN_NOMBRE';
+    const apellido = data.apellido_paterno || data.apellido || data['cliente.apellido_paterno'] || '';
+    const codigo = data.codigo || data.codigo_de_prospecto || data.id || 'SIN_CODIGO';
 
     const nombreCompleto = `${nombre} ${apellido}`.trim();
     const nombreSanitized = this.sanitizeForFilenameUpper(nombreCompleto);

@@ -93,18 +93,7 @@ class ExcelService {
         }
       }
 
-      // Solo enviar a N8N si está configurado y se solicita
-      if (data.sendToN8n !== false && process.env.N8N_WEBHOOK_URL) {
-        try {
-          await this.sendToN8n(excelResult.fileData, excelResult.fileName, {
-            formato: excelResult.formato,
-            dataHash: excelResult.dataHash,
-            storageUrl: storageUrl
-          });
-        } catch (error) {
-          log.warn('Error enviando a N8N (continuando):', error.message);
-        }
-      }
+      // N8N ya no se usa - el envío se maneja desde el servicio externo que llama a este webhook
 
       return {
         success: true,
@@ -372,44 +361,6 @@ class ExcelService {
     }
   }
 
-  /**
-   * Enviar archivo a N8N
-   */
-  async sendToN8n(base64Data, fileName, metadata = {}) {
-    try {
-      const webhookUrl = process.env.N8N_WEBHOOK_URL;
-
-      if (!webhookUrl) {
-        throw new Error('N8N_WEBHOOK_URL no configurada');
-      }
-
-      log.info(`Enviando a N8N: ${fileName}`);
-
-      const payload = {
-        fileName: fileName,
-        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        base64: base64Data,
-        metadata: {
-          generatedAt: new Date().toISOString(),
-          source: 'constructor-documentos-sumate',
-          ...metadata
-        }
-      };
-
-      await axios.post(webhookUrl, payload, {
-        timeout: 30000,
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Constructor-Documentos-Sumate/1.0'
-        }
-      });
-
-      log.info('Enviado exitosamente a N8N');
-    } catch (error) {
-      log.error('Error enviando a N8N:', error.message);
-      throw error;
-    }
-  }
 
   /**
    * Crear hash de datos para detección de cambios
