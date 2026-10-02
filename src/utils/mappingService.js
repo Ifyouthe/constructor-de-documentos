@@ -3,7 +3,7 @@
 // Basado en la implementación de Nexus con adaptaciones
 // =============================================
 
-const { storageUtils } = require('../config/supabase');
+const { storageUtils } = require('../config/storage');
 const { createLogger } = require('./logger');
 
 const log = createLogger('MAPPING');
@@ -19,7 +19,7 @@ class MappingService {
   }
 
   /**
-   * Cargar mappings desde Supabase Storage
+   * Cargar mappings desde el almacen de plantillas
    */
   async loadMappings(formato = 'general') {
     if (this.loaded.has(formato)) return;
@@ -63,7 +63,7 @@ class MappingService {
 
       log.info(`Cargando mapping: ${csvFileName} para formato: ${formato}`);
 
-      // Descargar CSV desde Supabase Storage
+      // Descargar CSV del almacen de plantillas
       const csvResult = await storageUtils.downloadTemplate(csvFileName);
 
       if (!csvResult.success) {

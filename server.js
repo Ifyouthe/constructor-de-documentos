@@ -10,7 +10,8 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 // Importar configuraciones
-const { checkSupabaseConnection, storageUtils, documentUtils } = require('./src/config/supabase');
+const { storageUtils } = require('./src/config/storage');
+const { crearApiKeyMiddleware } = require('./src/middleware/apiKey');
 
 // Importar servicios (ya vienen como instancias)
 const excelService = require('./src/services/excel/excelService');
@@ -45,6 +46,9 @@ app.use(cors({
   credentials: true
 }));
 
+// Secreto compartido (X-API-Key) en todo salvo /health
+app.use(crearApiKeyMiddleware(process.env.CONSTRUCTOR_API_KEY, { log }));
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutos
@@ -59,9 +63,10 @@ const limiter = rateLimit({
 
 app.use('/api/', limiter);
 
-// Body parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Body parsing (los payloads reales son JSON de pocos kB)
+const MAX_BODY_SIZE = process.env.MAX_BODY_SIZE || '1mb';
+app.use(express.json({ limit: MAX_BODY_SIZE }));
+app.use(express.urlencoded({ extended: true, limit: MAX_BODY_SIZE }));
 
 // Extraer datos_prospecto para endpoints de multiples documentos
 const normalizeDatosProspecto = (body) => {
@@ -81,8 +86,6 @@ const normalizeDatosProspecto = (body) => {
  */
 app.get('/health', async (req, res) => {
   try {
-    const supabaseCheck = await checkSupabaseConnection();
-
     // Verificar storage de plantillas
     const templatesCheck = await storageUtils.listTemplates();
 
@@ -99,22 +102,17 @@ app.get('/health', async (req, res) => {
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
       },
       checks: {
-        supabase: supabaseCheck.success ? 'healthy' : 'error',
         storage: templatesCheck.success ? 'healthy' : 'error',
         templatesCount: templatesCheck.templates ? templatesCheck.templates.length : 0
       },
       errors: []
     };
 
-    if (!supabaseCheck.success) {
-      healthStatus.errors.push(`Supabase: ${supabaseCheck.error}`);
-    }
-
     if (!templatesCheck.success) {
       healthStatus.errors.push(`Storage: ${templatesCheck.error}`);
     }
 
-    const hasErrors = !supabaseCheck.success || !templatesCheck.success;
+    const hasErrors = !templatesCheck.success;
 
     res.status(hasErrors ? 503 : 200).json(healthStatus);
 
@@ -614,157 +612,6 @@ app.get('/api/plantillas', async (req, res) => {
   }
 });
 
-/**
- * Obtener historial de documentos generados
- */
-app.get('/api/documentos/:pacienteId?', async (req, res) => {
-  try {
-    const { pacienteId } = req.params;
-    const { formato, limite = 50 } = req.query;
-
-    let query = req.app.locals.supabase
-      .from('documentos_generados_sumate')
-      .select('*')
-      .order('fecha_generacion', { ascending: false })
-      .limit(parseInt(limite));
-
-    if (pacienteId) {
-      query = query.eq('paciente_id', pacienteId);
-    }
-
-    if (formato) {
-      query = query.eq('formato', formato);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw error;
-    }
-
-    res.status(200).json({
-      success: true,
-      documentos: data,
-      total: data.length,
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    log.error('Error obteniendo historial:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Error obteniendo historial de documentos'
-    });
-  }
-});
-
-/**
- * Descargar documento por ID
- */
-app.get('/api/descargar/:documentId', async (req, res) => {
-  try {
-    const { documentId } = req.params;
-
-    // Obtener metadata del documento
-    const { data: documento, error } = await req.app.locals.supabase
-      .from('documentos_generados_sumate')
-      .select('*')
-      .eq('id', documentId)
-      .single();
-
-    if (error || !documento) {
-      return res.status(404).json({
-        success: false,
-        error: 'Documento no encontrado'
-      });
-    }
-
-    // Incrementar contador de descargas
-    await documentUtils.incrementDownloadCount(documentId);
-
-    // Obtener URL del archivo
-    const urlResult = await storageUtils.getPublicUrl(documento.storage_path);
-
-    if (!urlResult.success) {
-      return res.status(500).json({
-        success: false,
-        error: 'Error obteniendo URL de descarga'
-      });
-    }
-
-    res.redirect(urlResult.url);
-
-  } catch (error) {
-    log.error('Error en descarga:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Error procesando descarga'
-    });
-  }
-});
-
-// =============================================
-// ENDPOINTS DE ESTADÍSTICAS
-// =============================================
-
-/**
- * Estadísticas del servicio
- */
-app.get('/api/stats', async (req, res) => {
-  try {
-    // Obtener stats de documentos
-    const { data: stats, error } = await req.app.locals.supabase
-      .from('documentos_generados_sumate')
-      .select('formato, fecha_generacion')
-      .gte('fecha_generacion', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-
-    if (error) {
-      throw error;
-    }
-
-    const now = new Date();
-    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-    const totalDocuments = stats.length;
-    const documentsToday = stats.filter(doc => new Date(doc.fecha_generacion) > oneDayAgo).length;
-    const documentsThisWeek = stats.filter(doc => new Date(doc.fecha_generacion) > oneWeekAgo).length;
-
-    // Agrupar por formato
-    const porFormato = stats.reduce((acc, doc) => {
-      acc[doc.formato] = (acc[doc.formato] || 0) + 1;
-      return acc;
-    }, {});
-
-    res.status(200).json({
-      success: true,
-      stats: {
-        totales: {
-          documentos: totalDocuments,
-          hoy: documentsToday,
-          semana: documentsThisWeek
-        },
-        porFormato,
-        sistema: {
-          uptime: process.uptime(),
-          memoria: {
-            usado: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-            total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
-          }
-        }
-      },
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    log.error('Error obteniendo estadisticas:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Error obteniendo estadísticas'
-    });
-  }
-});
-
 // =============================================
 // MANEJO DE ERRORES
 // =============================================
@@ -779,6 +626,14 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  // Errores del body parser (413 cuerpo demasiado grande, 400 JSON invalido)
+  if (err.status >= 400 && err.status < 500) {
+    log.warn(`Peticion rechazada (${err.status}): ${err.type || err.message}`);
+    return res.status(err.status).json({
+      success: false,
+      error: err.status === 413 ? 'Cuerpo de la peticion demasiado grande' : 'Peticion invalida'
+    });
+  }
   log.error('Error no manejado:', err.message);
   res.status(500).json({
     success: false,
@@ -792,15 +647,6 @@ app.use((err, req, res, next) => {
 
 async function startServer() {
   try {
-    // Verificar conexiones
-    const supabaseCheck = await checkSupabaseConnection();
-
-    if (!supabaseCheck.success) {
-      log.error('Error conectando a Supabase:', supabaseCheck.error);
-    } else {
-      log.info('Supabase conectado');
-    }
-
     // Verificar storage
     const templatesCheck = await storageUtils.listTemplates();
     if (templatesCheck.success) {
@@ -809,12 +655,9 @@ async function startServer() {
       log.warn('Warning con storage:', templatesCheck.error);
     }
 
-    // Adjuntar Supabase a la aplicación para uso en rutas
-    app.locals.supabase = require('./src/config/supabase');
-
     const server = app.listen(PORT, () => {
       log.info(`Servidor ejecutandose en puerto ${PORT}`);
-      log.info(`Health: http://localhost:${PORT}/health | Stats: http://localhost:${PORT}/api/stats`);
+      log.info(`Health: http://localhost:${PORT}/health`);
     });
 
     // Manejo de cierre graceful
