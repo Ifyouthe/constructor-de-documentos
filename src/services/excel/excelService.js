@@ -6,7 +6,7 @@
 const ExcelJS = require('exceljs');
 const axios = require('axios');
 const crypto = require('crypto');
-const { storageUtils, documentUtils } = require('../../config/supabase');
+const { storageUtils } = require('../../config/storage');
 const mappingService = require('../../utils/mappingService');
 const { createLogger, createTemplateTracker } = require('../../utils/logger');
 
@@ -18,7 +18,7 @@ class ExcelService {
   }
 
   /**
-   * Generar documento Excel usando plantillas de Supabase Storage
+   * Generar documento Excel usando plantillas del almacen (S3/MinIO o local)
    */
   async generateExcel(data, formato = 'general') {
     try {
@@ -111,7 +111,7 @@ class ExcelService {
   }
 
   /**
-   * Subir documento generado a Supabase Storage
+   * Subir documento generado al almacen de generados (S3/MinIO o local)
    */
   async uploadToStorage(excelResult, originalData) {
     try {
@@ -132,26 +132,10 @@ class ExcelService {
       // Obtener URL pública
       const urlResult = await storageUtils.getPublicUrl(fileName);
 
-      // Guardar metadata en base de datos
-      const metadataResult = await documentUtils.saveDocumentMetadata({
-        pacienteId: originalData.paciente_id || originalData.id || null,
-        formato: excelResult.formato,
-        numeroExpediente: originalData.numero_de_expediente || originalData.expediente || null,
-        waId: originalData.wa_id || null,
-        storagePath: fileName,
-        nombreArchivo: fileName,
-        dataHash: excelResult.dataHash
-      });
-
-      if (!metadataResult.success) {
-        log.warn('Error guardando metadata:', metadataResult.error);
-      }
-
       return {
         success: true,
         url: urlResult.url,
-        path: fileName,
-        metadata: metadataResult.data
+        path: fileName
       };
     } catch (error) {
       log.error('Error en uploadToStorage:', error.message);
@@ -198,7 +182,7 @@ class ExcelService {
   }
 
   /**
-   * Crear workbook desde plantilla almacenada en Supabase Storage
+   * Crear workbook desde plantilla del almacen (S3/MinIO o local)
    */
   async createWorkbookFromTemplate(data, formato = 'general') {
     try {
@@ -256,7 +240,7 @@ class ExcelService {
       }
       log.info(`Usando formato ${formato}: template=${templateName}, hoja=${sheetName}`);
 
-      // Descargar plantilla desde Supabase Storage
+      // Descargar plantilla del almacen
       const templateResult = await storageUtils.downloadTemplate(templateName);
 
       if (!templateResult.success) {

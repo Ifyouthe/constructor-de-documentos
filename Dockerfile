@@ -19,8 +19,8 @@ RUN apk add --no-cache \
 # Copiar package files
 COPY package*.json ./
 
-# Instalar dependencias de producción
-RUN npm install --only=production && npm cache clean --force
+# Instalar dependencias de producción (exactas, del package-lock.json)
+RUN npm ci --omit=dev && npm cache clean --force
 
 # Copiar código fuente
 COPY . .
@@ -38,7 +38,7 @@ EXPOSE 3003
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3003/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })\" || exit 1
+  CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 3003) + '/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
 # Usar tini como PID 1 para manejo correcto de señales
 ENTRYPOINT ["/sbin/tini", "--"]

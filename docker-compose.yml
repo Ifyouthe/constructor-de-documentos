@@ -1,33 +1,37 @@
-version: '3.8'
-
+# Constructor de documentos Sumate.
+# Base neutra: sin puertos publicados ni redes. Cada servidor pone lo suyo en
+# un override (en el 207: docker-compose.207.yml). Variables en .env (600);
+# ver .env.example.
 services:
   constructor-de-documentos-sumate:
     build: .
-    ports:
-      - "3003:3003"
+    expose:
+      - "3003"
     environment:
       - NODE_ENV=production
       - PORT=3003
       - SERVICE_NAME=constructor-de-documentos-sumate
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-      - SUPABASE_BUCKET_TEMPLATES=${SUPABASE_BUCKET_TEMPLATES}
-      - SUPABASE_BUCKET_GENERATED=${SUPABASE_BUCKET_GENERATED}
-      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL}
-      - FRASE_SECRETA_EXCEL=${FRASE_SECRETA_EXCEL}
+      # Secreto compartido: los clientes mandan la cabecera X-API-Key
+      - CONSTRUCTOR_API_KEY=${CONSTRUCTOR_API_KEY:-}
+      # Plantillas: s3 (MinIO u otro S3 compatible) o local (directorio)
+      - STORAGE_DRIVER=${STORAGE_DRIVER:-s3}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-}
+      - MINIO_REGION=${MINIO_REGION:-us-east-1}
+      - MINIO_FORCE_PATH_STYLE=${MINIO_FORCE_PATH_STYLE:-true}
+      - BUCKET_PLANTILLAS=${BUCKET_PLANTILLAS:-plantillas-constructor}
+      - BUCKET_GENERADOS=${BUCKET_GENERADOS:-}
+      - PLANTILLAS_DIR=${PLANTILLAS_DIR:-/app/plantillas}
+      - FRASE_SECRETA_EXCEL=${FRASE_SECRETA_EXCEL:-}
+      - MAX_BODY_SIZE=${MAX_BODY_SIZE:-1mb}
       - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-900000}
       - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-50}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3003/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3003/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    networks:
-      - backend_global
-
-networks:
-  backend_global:
-    external: true

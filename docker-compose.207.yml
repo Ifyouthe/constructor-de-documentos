@@ -1,0 +1,25 @@
+# Override del servidor 207 (lo despliega P8; ver README "Despliegue en el 207").
+#   docker compose -p sumate-constructor -f docker-compose.yml -f docker-compose.207.yml up -d --build
+# - Sin puertos publicados: solo lo alcanzan las apps de la red interna
+#   sumate_servicios (la crea la infraestructura del 207, no este compose).
+# - URL para los clientes: http://sumate-constructor:3003/webhook/generar-documento
+#   con la cabecera X-API-Key: $CONSTRUCTOR_API_KEY.
+# - Las plantillas se leen del MinIO indicado en MINIO_ENDPOINT (que tiene que
+#   estar en una red comun con este contenedor), bucket plantillas-constructor.
+services:
+  constructor-de-documentos-sumate:
+    container_name: sumate-constructor
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    cpus: 1
+    pids_limit: 128
+    networks: [sumate_servicios]
+
+networks:
+  sumate_servicios:
+    external: true
